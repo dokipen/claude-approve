@@ -1,0 +1,5 @@
+{
+  "env": {
+    "CLAUDE_CODE_ENABLE_TEAMS_EXPERIMENTAL": "1"
+  }
+}
