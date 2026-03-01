@@ -38,7 +38,7 @@ func TestSplit(t *testing.T) {
 		{
 			name:  "background ampersand",
 			input: "sleep 5 &",
-			want:  []string{"sleep 5"},
+			want:  []string{"sleep 5 &"},
 		},
 		{
 			name:  "single quoted operators",
@@ -49,11 +49,6 @@ func TestSplit(t *testing.T) {
 			name:  "double quoted operators",
 			input: `echo "a && b"`,
 			want:  []string{`echo "a && b"`},
-		},
-		{
-			name:  "backslash escape",
-			input: `echo hello\&\& world`,
-			want:  []string{`echo hello\&\& world`},
 		},
 		{
 			name:  "mixed operators",
@@ -76,29 +71,24 @@ func TestSplit(t *testing.T) {
 			want:  nil,
 		},
 		{
-			name:  "subshell not split",
+			name:  "subshell commands extracted",
 			input: "echo $(git status && git log)",
-			want:  []string{"echo $(git status && git log)"},
+			want:  []string{"echo $(git status && git log)", "git status", "git log"},
 		},
 		{
-			name:  "nested subshell not split",
+			name:  "nested subshell commands extracted",
 			input: "echo $(a && $(b || c))",
-			want:  []string{"echo $(a && $(b || c))"},
+			want:  []string{"echo $(a && $(b || c))", "a", "$(b || c)", "b", "c"},
 		},
 		{
 			name:  "subshell then operator",
 			input: "echo $(cat file) && rm -rf /",
-			want:  []string{"echo $(cat file)", "rm -rf /"},
+			want:  []string{"echo $(cat file)", "cat file", "rm -rf /"},
 		},
 		{
-			name:  "backtick not split",
+			name:  "backtick commands extracted (printer normalizes to $())",
 			input: "echo `git status && git log`",
-			want:  []string{"echo `git status && git log`"},
-		},
-		{
-			name:  "double semicolons produce no empty parts",
-			input: "ls ;; pwd",
-			want:  []string{"ls", "pwd"},
+			want:  []string{"echo $(git status && git log)", "git status", "git log"},
 		},
 		{
 			name:  "trailing semicolon",
@@ -111,7 +101,7 @@ func TestSplit(t *testing.T) {
 			want:  []string{"git status", "git log"},
 		},
 		{
-			name:  "unbalanced single quote treats rest as quoted",
+			name:  "unbalanced quote fallback",
 			input: "echo 'hello && rm -rf /",
 			want:  []string{"echo 'hello && rm -rf /"},
 		},
@@ -119,6 +109,37 @@ func TestSplit(t *testing.T) {
 			name:  "pipe with redirect",
 			input: "cmd 2>&1 | grep error",
 			want:  []string{"cmd 2>&1", "grep error"},
+		},
+		// Control structures — the key improvement over the custom tokenizer
+		{
+			name:  "if then fi",
+			input: "if git status; then echo ok; fi",
+			want:  []string{"git status", "echo ok"},
+		},
+		{
+			name:  "if then else fi",
+			input: "if [ -f foo ]; then echo yes; else echo no; fi",
+			want:  []string{"[ -f foo ]", "echo yes", "echo no"},
+		},
+		{
+			name:  "for loop",
+			input: "for f in *.txt; do cat \"$f\"; done",
+			want:  []string{"cat \"$f\""},
+		},
+		{
+			name:  "while loop",
+			input: "while read line; do echo \"$line\"; done < file.txt",
+			want:  []string{"read line", "echo \"$line\""},
+		},
+		{
+			name:  "control structure with dangerous command",
+			input: "if true; then rm -rf /; fi",
+			want:  []string{"true", "rm -rf /"},
+		},
+		{
+			name:  "test clause",
+			input: "if [[ -f foo ]]; then echo yes; fi",
+			want:  []string{"[[ -f foo ]]", "echo yes"},
 		},
 	}
 

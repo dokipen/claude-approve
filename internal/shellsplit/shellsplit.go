@@ -1,115 +1,63 @@
-// Package shellsplit splits compound shell commands into individual sub-commands.
+// Package shellsplit extracts individual commands from compound shell expressions.
 package shellsplit
 
-import "strings"
+import (
+	"bytes"
+	"strings"
 
-// Split breaks a shell command string into individual sub-commands by splitting
-// on unquoted compound operators: &&, ||, ;, |, &
+	"mvdan.cc/sh/v3/syntax"
+)
+
+// Split parses a shell command string and extracts all individual commands,
+// including those inside control structures (if/for/while), pipelines,
+// logical operators (&&, ||), and command substitutions ($(...), `...`).
 //
-// It respects single quotes, double quotes, backslash escapes, and does not
-// split inside $(...) subshells or backtick expressions.
+// It uses a full POSIX/Bash shell parser, so it correctly handles quoting,
+// escaping, here-docs, and nested constructs.
+//
+// If parsing fails (e.g. unbalanced quotes), the whole command is returned
+// as a single element — which is the safe fallback (no splitting means the
+// engine evaluates the original string as-is).
 func Split(cmd string) []string {
+	cmd = strings.TrimSpace(cmd)
+	if cmd == "" {
+		return nil
+	}
+
+	parser := syntax.NewParser(syntax.KeepComments(false))
+	file, err := parser.Parse(strings.NewReader(cmd), "")
+	if err != nil {
+		// Parse failed — return whole command as-is (safe fallback).
+		return []string{cmd}
+	}
+
+	printer := syntax.NewPrinter()
 	var commands []string
-	var current strings.Builder
 
-	inSingleQuote := false
-	inDoubleQuote := false
-	inBacktick := false
-	parenDepth := 0 // tracks $(...) nesting
-
-	i := 0
-	for i < len(cmd) {
-		ch := cmd[i]
-
-		// Backslash escapes (not inside single quotes)
-		if ch == '\\' && !inSingleQuote && i+1 < len(cmd) {
-			current.WriteByte(ch)
-			current.WriteByte(cmd[i+1])
-			i += 2
-			continue
+	syntax.Walk(file, func(node syntax.Node) bool {
+		stmt, ok := node.(*syntax.Stmt)
+		if !ok {
+			return true
 		}
 
-		// Quote tracking
-		if ch == '\'' && !inDoubleQuote && !inBacktick {
-			inSingleQuote = !inSingleQuote
-			current.WriteByte(ch)
-			i++
-			continue
-		}
-		if ch == '"' && !inSingleQuote && !inBacktick {
-			inDoubleQuote = !inDoubleQuote
-			current.WriteByte(ch)
-			i++
-			continue
-		}
-		if ch == '`' && !inSingleQuote {
-			inBacktick = !inBacktick
-			current.WriteByte(ch)
-			i++
-			continue
-		}
-
-		// $(...) subshell tracking (not inside quotes)
-		if ch == '$' && !inSingleQuote && !inDoubleQuote && !inBacktick &&
-			i+1 < len(cmd) && cmd[i+1] == '(' {
-			parenDepth++
-			current.WriteByte(ch)
-			current.WriteByte(cmd[i+1])
-			i += 2
-			continue
-		}
-		if ch == ')' && !inSingleQuote && !inDoubleQuote && !inBacktick && parenDepth > 0 {
-			parenDepth--
-			current.WriteByte(ch)
-			i++
-			continue
-		}
-
-		// Only split when outside all quoting contexts
-		if !inSingleQuote && !inDoubleQuote && !inBacktick && parenDepth == 0 {
-			// Two-character operators: &&, ||
-			if i+1 < len(cmd) {
-				pair := cmd[i : i+2]
-				if pair == "&&" || pair == "||" {
-					flush(&commands, &current)
-					i += 2
-					continue
-				}
-			}
-
-			// Single-character operators: ;, |, &
-		// For &, skip if preceded by > (redirect like 2>&1)
-			if ch == ';' || ch == '|' {
-				flush(&commands, &current)
-				i++
-				continue
-			}
-			if ch == '&' {
-				s := current.String()
-				if len(s) > 0 && s[len(s)-1] == '>' {
-					// Part of a redirect (e.g. >&, 2>&1), not a separator
-					current.WriteByte(ch)
-					i++
-					continue
-				}
-				flush(&commands, &current)
-				i++
-				continue
+		// Collect leaf commands (simple commands, declarations, test expressions).
+		// Skip compound nodes (BinaryCmd, IfClause, etc.) — Walk descends
+		// into them to find the leaf commands inside.
+		switch stmt.Cmd.(type) {
+		case *syntax.CallExpr, *syntax.DeclClause, *syntax.TestClause:
+			var buf bytes.Buffer
+			printer.Print(&buf, stmt)
+			s := strings.TrimSpace(buf.String())
+			if s != "" {
+				commands = append(commands, s)
 			}
 		}
 
-		current.WriteByte(ch)
-		i++
+		return true // always continue walking to find nested commands
+	})
+
+	if len(commands) == 0 {
+		return []string{cmd}
 	}
-
-	flush(&commands, &current)
 	return commands
-}
-
-func flush(commands *[]string, current *strings.Builder) {
-	s := strings.TrimSpace(current.String())
-	if s != "" {
-		*commands = append(*commands, s)
-	}
-	current.Reset()
 }
