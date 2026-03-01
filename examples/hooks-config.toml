@@ -1,0 +1,80 @@
+# Claude Code Approval Hook Configuration
+# Place at ~/.claude/hooks-config.toml
+
+[audit]
+audit_file = "/tmp/claude-tool-audit.jsonl"
+audit_level = "matched"  # off | matched | all
+
+# ──────────────────────────────────────────────
+# Deny rules (evaluated first, highest priority)
+# ──────────────────────────────────────────────
+
+[[deny]]
+tool = "Bash"
+command_regex = "^rm .*-rf"
+reason = "Dangerous recursive force delete"
+
+[[deny]]
+tool = "Bash"
+command_regex = "^(sudo|chmod|chown) "
+reason = "Privileged commands need manual review"
+
+[[deny]]
+tool = "Write"
+file_path_regex = "\\.(env|pem|key|secret)$"
+reason = "Don't write secret/credential files"
+
+# ──────────────────────────────────────────────
+# Allow rules (auto-approve matching tool calls)
+# ──────────────────────────────────────────────
+
+[[allow]]
+tool = "Bash"
+command_regex = "^(git|flutter|dart|go|npm|npx|cargo|make|pytest|echo|ls|cat|head|tail|wc|which|pwd|env|export|mkdir|cp|mv|touch|diff) "
+command_exclude_regex = "&&|;|\\||`|\\$\\("
+reason = "Standard dev commands without shell chaining"
+
+[[allow]]
+tool = "Bash"
+command_regex = "^(git|flutter|dart|go) [a-z]"
+reason = "Simple dev tool invocations"
+
+[[allow]]
+tool = "Read"
+file_path_regex = ".*"
+reason = "Allow all file reads"
+
+[[allow]]
+tool = "Edit"
+file_path_regex = "\\.(go|dart|ts|js|py|rs|toml|yaml|yml|json|md|txt|sh|css|html|sql)$"
+file_path_exclude_regex = "\\.(env|pem|key|secret)"
+reason = "Edit source code files"
+
+[[allow]]
+tool = "Write"
+file_path_regex = "\\.(go|dart|ts|js|py|rs|toml|yaml|yml|json|md|txt|sh|css|html|sql)$"
+file_path_exclude_regex = "\\.(env|pem|key|secret)"
+reason = "Write source code files"
+
+# ──────────────────────────────────────────────
+# Ask rules (prompt user for confirmation)
+# ──────────────────────────────────────────────
+
+[[ask]]
+tool = "Edit"
+file_path_regex = "\\.(lock|sum)$"
+reason = "Editing lock/checksum files needs confirmation"
+
+[[ask]]
+tool = "Bash"
+command_regex = ".*&&.*"
+reason = "Chained commands need confirmation"
+
+# ──────────────────────────────────────────────
+# Log rules (audit only, don't affect decisions)
+# ──────────────────────────────────────────────
+
+[[log]]
+tool = "Bash"
+command_regex = ".*"
+reason = "Audit all bash commands"
