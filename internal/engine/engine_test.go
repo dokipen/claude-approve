@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/dokipen/claude-approve/internal/config"
@@ -343,5 +344,216 @@ reason = "Allow all reads"
 	result, _ := Evaluate(cfg, input)
 	if result.Decision != DecisionAllow {
 		t.Errorf("decision = %q, want allow (no regex = match all)", result.Decision)
+	}
+}
+
+// --- Compound command tests ---
+
+func TestCompoundDenyTrumpsAllow(t *testing.T) {
+	cfg := mustParse(t, `
+[[deny]]
+tool = "Bash"
+command_regex = "^rm .*-rf"
+reason = "Dangerous delete"
+
+[[allow]]
+tool = "Bash"
+command_regex = "^git "
+reason = "Git commands"
+`)
+
+	input := &hook.Input{
+		ToolName:  "Bash",
+		ToolInput: hook.ToolInput{Command: "git status && rm -rf /"},
+	}
+	result, _ := Evaluate(cfg, input)
+	if result.Decision != DecisionDeny {
+		t.Errorf("decision = %q, want deny", result.Decision)
+	}
+	if !strings.Contains(result.Reason, "rm -rf /") {
+		t.Errorf("reason = %q, should mention the offending sub-command", result.Reason)
+	}
+}
+
+func TestCompoundAllAllowed(t *testing.T) {
+	cfg := mustParse(t, `
+[[allow]]
+tool = "Bash"
+command_regex = "^git "
+reason = "Git commands"
+`)
+
+	input := &hook.Input{
+		ToolName:  "Bash",
+		ToolInput: hook.ToolInput{Command: "git status && git log"},
+	}
+	result, _ := Evaluate(cfg, input)
+	if result.Decision != DecisionAllow {
+		t.Errorf("decision = %q, want allow", result.Decision)
+	}
+}
+
+func TestCompoundAllowPlusPassthrough(t *testing.T) {
+	cfg := mustParse(t, `
+[[allow]]
+tool = "Bash"
+command_regex = "^git "
+reason = "Git commands"
+`)
+
+	input := &hook.Input{
+		ToolName:  "Bash",
+		ToolInput: hook.ToolInput{Command: "git status && npm install"},
+	}
+	result, _ := Evaluate(cfg, input)
+	if result.Decision != DecisionPassthrough {
+		t.Errorf("decision = %q, want passthrough (npm has no rule)", result.Decision)
+	}
+}
+
+func TestCompoundAskTrumpsAllow(t *testing.T) {
+	cfg := mustParse(t, `
+[[ask]]
+tool = "Bash"
+command_regex = "^curl "
+reason = "Network access needs confirmation"
+
+[[allow]]
+tool = "Bash"
+command_regex = "^git "
+reason = "Git commands"
+`)
+
+	input := &hook.Input{
+		ToolName:  "Bash",
+		ToolInput: hook.ToolInput{Command: "git status && curl https://example.com"},
+	}
+	result, _ := Evaluate(cfg, input)
+	if result.Decision != DecisionAsk {
+		t.Errorf("decision = %q, want ask", result.Decision)
+	}
+}
+
+func TestCompoundWithPipe(t *testing.T) {
+	cfg := mustParse(t, `
+[[allow]]
+tool = "Bash"
+command_regex = "^(cat|grep) "
+reason = "Safe read commands"
+`)
+
+	input := &hook.Input{
+		ToolName:  "Bash",
+		ToolInput: hook.ToolInput{Command: "cat file.txt | grep error"},
+	}
+	result, _ := Evaluate(cfg, input)
+	if result.Decision != DecisionAllow {
+		t.Errorf("decision = %q, want allow", result.Decision)
+	}
+}
+
+func TestCompoundQuotedOperatorsNotSplit(t *testing.T) {
+	cfg := mustParse(t, `
+[[allow]]
+tool = "Bash"
+command_regex = "^echo "
+reason = "Echo allowed"
+`)
+
+	input := &hook.Input{
+		ToolName:  "Bash",
+		ToolInput: hook.ToolInput{Command: `echo "a && b"`},
+	}
+	result, _ := Evaluate(cfg, input)
+	if result.Decision != DecisionAllow {
+		t.Errorf("decision = %q, want allow (quoted && should not split)", result.Decision)
+	}
+}
+
+func TestCompoundSemicolon(t *testing.T) {
+	cfg := mustParse(t, `
+[[deny]]
+tool = "Bash"
+command_regex = "^rm .*-rf"
+reason = "Dangerous delete"
+
+[[allow]]
+tool = "Bash"
+command_regex = "^ls"
+reason = "List allowed"
+`)
+
+	input := &hook.Input{
+		ToolName:  "Bash",
+		ToolInput: hook.ToolInput{Command: "ls; rm -rf /"},
+	}
+	result, _ := Evaluate(cfg, input)
+	if result.Decision != DecisionDeny {
+		t.Errorf("decision = %q, want deny", result.Decision)
+	}
+}
+
+func TestCompoundLogRulesFromAllSubcommands(t *testing.T) {
+	cfg := mustParse(t, `
+[[log]]
+tool = "Bash"
+command_regex = ".*"
+reason = "Audit all bash"
+
+[[allow]]
+tool = "Bash"
+command_regex = "^(git|echo) "
+reason = "Safe commands"
+`)
+
+	input := &hook.Input{
+		ToolName:  "Bash",
+		ToolInput: hook.ToolInput{Command: "git status && echo hello"},
+	}
+	result, logResults := Evaluate(cfg, input)
+	if result.Decision != DecisionAllow {
+		t.Errorf("decision = %q, want allow", result.Decision)
+	}
+	if len(logResults) != 2 {
+		t.Errorf("got %d log results, want 2 (one per sub-command)", len(logResults))
+	}
+}
+
+func TestSingleCommandUnchanged(t *testing.T) {
+	cfg := mustParse(t, `
+[[allow]]
+tool = "Bash"
+command_regex = "^git "
+reason = "Git commands"
+`)
+
+	input := &hook.Input{
+		ToolName:  "Bash",
+		ToolInput: hook.ToolInput{Command: "git status"},
+	}
+	result, _ := Evaluate(cfg, input)
+	if result.Decision != DecisionAllow {
+		t.Errorf("decision = %q, want allow", result.Decision)
+	}
+	if strings.Contains(result.Reason, "[in:") {
+		t.Errorf("reason = %q, should not have [in:] annotation for single command", result.Reason)
+	}
+}
+
+func TestNonBashToolUnaffected(t *testing.T) {
+	cfg := mustParse(t, `
+[[allow]]
+tool = "Read"
+file_path_regex = ".*"
+reason = "Allow all reads"
+`)
+
+	input := &hook.Input{
+		ToolName:  "Read",
+		ToolInput: hook.ToolInput{FilePath: "/some/path && /other/path"},
+	}
+	result, _ := Evaluate(cfg, input)
+	if result.Decision != DecisionAllow {
+		t.Errorf("decision = %q, want allow (Read should not be split)", result.Decision)
 	}
 }

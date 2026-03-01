@@ -26,13 +26,22 @@ reason = "Don't write secret/credential files"
 
 # ──────────────────────────────────────────────
 # Allow rules (auto-approve matching tool calls)
+#
+# Compound commands (&&, ||, ;, |) are automatically
+# split and each sub-command is evaluated independently.
+# The most restrictive decision wins:
+#   deny > ask > passthrough > allow
+#
+# This means command_exclude_regex patterns for "&&"
+# or ";" are no longer needed — you can simply list
+# which commands are allowed and deny rules will still
+# catch dangerous sub-commands.
 # ──────────────────────────────────────────────
 
 [[allow]]
 tool = "Bash"
 command_regex = "^(git|flutter|dart|go|npm|npx|cargo|make|pytest|echo|ls|cat|head|tail|wc|which|pwd|env|export|mkdir|cp|mv|touch|diff) "
-command_exclude_regex = "&&|;|\\||`|\\$\\("
-reason = "Standard dev commands without shell chaining"
+reason = "Standard dev commands"
 
 [[allow]]
 tool = "Bash"
@@ -65,10 +74,8 @@ tool = "Edit"
 file_path_regex = "\\.(lock|sum)$"
 reason = "Editing lock/checksum files needs confirmation"
 
-[[ask]]
-tool = "Bash"
-command_regex = ".*&&.*"
-reason = "Chained commands need confirmation"
+# Note: compound commands are now analyzed per sub-command,
+# so a blanket "ask on &&" rule is no longer needed.
 
 # ──────────────────────────────────────────────
 # Log rules (audit only, don't affect decisions)
