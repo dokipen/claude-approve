@@ -1,17 +1,23 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/dokipen/claude-approve/internal/audit"
 	"github.com/dokipen/claude-approve/internal/config"
 	"github.com/dokipen/claude-approve/internal/engine"
 	"github.com/dokipen/claude-approve/internal/hook"
 )
+
+// stdinTimeout is how long we wait for stdin before giving up.
+// Claude Code should send input immediately, so 10 seconds is generous.
+const stdinTimeout = 10 * time.Second
 
 func main() {
 	if len(os.Args) < 2 {
@@ -46,7 +52,7 @@ func cmdRun(args []string) {
 		os.Exit(2)
 	}
 
-	data, err := io.ReadAll(os.Stdin)
+	data, err := readStdinWithTimeout(stdinTimeout)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error reading stdin: %v\n", err)
 		os.Exit(2)
@@ -203,6 +209,29 @@ func cmdTest(args []string) {
 		for _, lr := range logResults {
 			fmt.Printf("  - %s\n", lr.Reason)
 		}
+	}
+}
+
+// readStdinWithTimeout reads all of stdin but aborts if it takes too long.
+func readStdinWithTimeout(timeout time.Duration) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	type result struct {
+		data []byte
+		err  error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		data, err := io.ReadAll(os.Stdin)
+		ch <- result{data, err}
+	}()
+
+	select {
+	case r := <-ch:
+		return r.data, r.err
+	case <-ctx.Done():
+		return nil, fmt.Errorf("timed out after %s waiting for stdin", timeout)
 	}
 }
 
