@@ -43,8 +43,23 @@ func Split(cmd string) []string {
 		// Collect leaf commands (simple commands, declarations, test expressions).
 		// Skip compound nodes (BinaryCmd, IfClause, etc.) — Walk descends
 		// into them to find the leaf commands inside.
-		switch stmt.Cmd.(type) {
-		case *syntax.CallExpr, *syntax.DeclClause, *syntax.TestClause:
+		switch cmd := stmt.Cmd.(type) {
+		case *syntax.CallExpr:
+			// Skip pure variable assignments (e.g. "FOO=$(cmd)").
+			// The inner command substitution is already extracted by
+			// the walk, so emitting the assignment wrapper would create
+			// a phantom sub-command that matches no rules and causes
+			// passthrough to override real decisions in compound eval.
+			if len(cmd.Args) == 0 && len(cmd.Assigns) > 0 {
+				break
+			}
+			var buf bytes.Buffer
+			printer.Print(&buf, stmt)
+			s := strings.TrimSpace(buf.String())
+			if s != "" {
+				commands = append(commands, s)
+			}
+		case *syntax.DeclClause, *syntax.TestClause:
 			var buf bytes.Buffer
 			printer.Print(&buf, stmt)
 			s := strings.TrimSpace(buf.String())
