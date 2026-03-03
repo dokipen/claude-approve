@@ -56,6 +56,12 @@ func TestExampleConfig(t *testing.T) {
 			wantDecision: DecisionDeny,
 		},
 		{
+			name:         "deny: rm -fr (swapped flags)",
+			toolName:     "Bash",
+			command:      "rm -fr /tmp/important",
+			wantDecision: DecisionDeny,
+		},
+		{
 			name:         "deny: chmod",
 			toolName:     "Bash",
 			command:      "chmod +x scripts/deploy.sh",
@@ -169,17 +175,19 @@ func TestExampleConfig(t *testing.T) {
 			command:      "env",
 			wantDecision: DecisionAllow,
 		},
+		// bash removed from simple-command list to prevent
+		// bash -c 'dangerous cmd' from bypassing deny rules.
 		{
-			name:         "allow: bash script",
+			name:         "passthrough: bash script",
 			toolName:     "Bash",
 			command:      "bash /tmp/script.sh",
-			wantDecision: DecisionAllow,
+			wantDecision: DecisionPassthrough,
 		},
 		{
-			name:         "allow: bash -c",
+			name:         "passthrough: bash -c (deny bypass prevention)",
 			toolName:     "Bash",
-			command:      "bash -c 'echo hello'",
-			wantDecision: DecisionAllow,
+			command:      "bash -c 'rm -rf /'",
+			wantDecision: DecisionPassthrough,
 		},
 		{
 			name:         "allow: cat file",
@@ -456,6 +464,12 @@ func TestExampleConfig(t *testing.T) {
 			toolName:     "Write",
 			filePath:     "/project/private.key",
 			wantDecision: DecisionDeny,
+		},
+		{
+			name:         "passthrough: write .env.local (deny needs $ anchor)",
+			toolName:     "Write",
+			filePath:     "/project/.env.local",
+			wantDecision: DecisionPassthrough,
 		},
 		{
 			name:         "passthrough: edit .env excluded",
