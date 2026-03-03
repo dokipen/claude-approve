@@ -141,6 +141,63 @@ func TestSplit(t *testing.T) {
 			input: "if [[ -f foo ]]; then echo yes; fi",
 			want:  []string{"[[ -f foo ]]", "echo yes"},
 		},
+		// Variable assignments — should not emit the assignment wrapper
+		{
+			name:  "variable assignment with command substitution",
+			input: "VAR=$(git status) && echo $VAR",
+			want:  []string{"git status", "echo $VAR"},
+		},
+		{
+			name:  "pure variable assignment without command",
+			input: "FOO=bar",
+			want:  []string{"FOO=bar"}, // fallback: single element returned as-is
+		},
+		{
+			name:  "variable assignment before command preserved",
+			input: "FOO=bar cmd arg",
+			want:  []string{"FOO=bar cmd arg"},
+		},
+		{
+			name:  "export with command substitution",
+			input: "export VAR=$(whoami) && echo done",
+			want:  []string{"export VAR=$(whoami)", "whoami", "echo done"},
+		},
+		{
+			name:  "multiple assignments with command substitution",
+			input: "A=$(cmd1) && B=$(cmd2) && echo $A $B",
+			want:  []string{"cmd1", "cmd2", "echo $A $B"},
+		},
+		// Security: dangerous commands inside assignments must still be extracted
+		{
+			name:  "dangerous command in assignment is extracted",
+			input: "DANGEROUS=$(rm -rf /) && echo done",
+			want:  []string{"rm -rf /", "echo done"},
+		},
+		{
+			name:  "multiple pure assignments no command",
+			input: "A=1 B=2",
+			want:  []string{"A=1 B=2"}, // fallback: single element returned as-is
+		},
+		{
+			name:  "single assignment with command substitution",
+			input: "A=$(dangerous_cmd)",
+			want:  []string{"dangerous_cmd"},
+		},
+		{
+			name:  "env var prefix before command preserved",
+			input: "PATH=/tmp:$PATH cmd",
+			want:  []string{"PATH=/tmp:$PATH cmd"},
+		},
+		{
+			name:  "declare with command substitution emits both",
+			input: "declare -x FOO=$(cmd)",
+			want:  []string{"declare -x FOO=$(cmd)", "cmd"},
+		},
+		{
+			name:  "nested substitution in assignment",
+			input: "X=$(echo $(rm -rf /)) && ls",
+			want:  []string{"echo $(rm -rf /)", "rm -rf /", "ls"},
+		},
 	}
 
 	for _, tt := range tests {
