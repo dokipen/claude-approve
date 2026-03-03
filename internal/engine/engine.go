@@ -39,6 +39,13 @@ func Evaluate(cfg *config.Config, input *hook.Input) (Result, []Result) {
 		if len(parts) > 1 {
 			return evaluateCompound(cfg, input, parts)
 		}
+		// If split extracted a different command (e.g. bash -c 'cmd' → cmd),
+		// evaluate the extracted command instead of the original.
+		if len(parts) == 1 && parts[0] != input.ToolInput.Command {
+			modified := *input
+			modified.ToolInput.Command = parts[0]
+			return evaluateSingle(cfg, &modified)
+		}
 	}
 	return evaluateSingle(cfg, input)
 }

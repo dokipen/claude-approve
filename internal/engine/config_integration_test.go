@@ -175,18 +175,42 @@ func TestExampleConfig(t *testing.T) {
 			command:      "env",
 			wantDecision: DecisionAllow,
 		},
-		// bash removed from simple-command list to prevent
-		// bash -c 'dangerous cmd' from bypassing deny rules.
 		{
-			name:         "passthrough: bash script",
+			name:         "allow: bash script",
 			toolName:     "Bash",
 			command:      "bash /tmp/script.sh",
-			wantDecision: DecisionPassthrough,
+			wantDecision: DecisionAllow,
 		},
 		{
-			name:         "passthrough: bash -c (deny bypass prevention)",
+			name:         "allow: bash -c safe",
+			toolName:     "Bash",
+			command:      "bash -c 'echo hello'",
+			wantDecision: DecisionAllow,
+		},
+		// bash -c inner command is extracted by shellsplit, so
+		// deny rules see rm -rf even though bash is the outer command.
+		{
+			name:         "deny: bash -c rm -rf (inner extracted)",
 			toolName:     "Bash",
 			command:      "bash -c 'rm -rf /'",
+			wantDecision: DecisionDeny,
+		},
+		{
+			name:         "deny: sh -c rm -rf (inner extracted)",
+			toolName:     "Bash",
+			command:      "sh -c 'rm -rf /'",
+			wantDecision: DecisionDeny,
+		},
+		{
+			name:         "deny: bash -c compound (inner extracted)",
+			toolName:     "Bash",
+			command:      "git status && bash -c 'rm -rf /'",
+			wantDecision: DecisionDeny,
+		},
+		{
+			name:         "passthrough: bare bash in compound (no rule matches)",
+			toolName:     "Bash",
+			command:      "bash script.sh && unknown_tool",
 			wantDecision: DecisionPassthrough,
 		},
 		{

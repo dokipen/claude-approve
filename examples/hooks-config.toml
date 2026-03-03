@@ -27,17 +27,16 @@ reason = "Blocked writing secrets (.env/.pem/.key)"
 # ──────────────────────────────────────────────
 # Allow rules (auto-approve matching tool calls)
 #
-# Compound commands (&&, ||, ;, |) are split by
-# the shell AST parser and each sub-command is
+# Compound commands (&&, ||, ;, |) and bash -c are
+# split by the shell AST parser. Each sub-command is
 # evaluated independently. Most restrictive wins:
 #   deny > ask > passthrough > allow
 # ──────────────────────────────────────────────
 
 [[allow]]
 tool = "Bash"
-command_regex = "^(cargo|cat|cp|curl|diff|du|echo|env|export|file|find|grep|head|kill|killall|ls|lsof|make|mkdir|mv|nc|npm|npx|open|pgrep|pkill|pwd|pytest|sort|tail|tee|test|touch|tree|unzip|wc|which|yq)( |$)"
-command_exclude_regex = "&&|;|`|\\$\\("
-reason = "Simple command (no chaining)"
+command_regex = "^(bash|cargo|cat|cp|curl|diff|du|echo|env|export|file|find|grep|head|kill|killall|ls|lsof|make|mkdir|mv|nc|npm|npx|open|pgrep|pkill|pwd|pytest|sort|tail|tee|test|touch|tree|unzip|wc|which|yq)( |$)"
+reason = "Simple command"
 
 [[allow]]
 tool = "Bash"

@@ -198,6 +198,107 @@ func TestSplit(t *testing.T) {
 			input: "X=$(echo $(rm -rf /)) && ls",
 			want:  []string{"echo $(rm -rf /)", "rm -rf /", "ls"},
 		},
+		// bash -c / sh -c extraction
+		{
+			name:  "bash -c extracts inner command",
+			input: "bash -c 'rm -rf /'",
+			want:  []string{"rm -rf /"},
+		},
+		{
+			name:  "sh -c extracts inner command",
+			input: "sh -c 'echo hello'",
+			want:  []string{"echo hello"},
+		},
+		{
+			name:  "bash -c with double quotes",
+			input: `bash -c "rm -rf /"`,
+			want:  []string{"rm -rf /"},
+		},
+		{
+			name:  "bash -c with unquoted arg",
+			input: "bash -c ls",
+			want:  []string{"ls"},
+		},
+		{
+			name:  "bash -c with compound inner command",
+			input: "bash -c 'git status && rm -rf /'",
+			want:  []string{"git status", "rm -rf /"},
+		},
+		{
+			name:  "bash -c in compound with other commands",
+			input: "bash -c 'rm -rf /' && git status",
+			want:  []string{"rm -rf /", "git status"},
+		},
+		{
+			name:  "bash -c with flags before -c",
+			input: "bash -x -c 'dangerous_cmd'",
+			want:  []string{"dangerous_cmd"},
+		},
+		{
+			name:  "bash -xc combined flags",
+			input: "bash -xc 'dangerous_cmd'",
+			want:  []string{"dangerous_cmd"},
+		},
+		{
+			name:  "bash -cx combined flags (c not last)",
+			input: "bash -cx 'dangerous_cmd'",
+			want:  []string{"dangerous_cmd"},
+		},
+		{
+			name:  "bash -- -c treated as bare (-- terminates options)",
+			input: "bash -- -c 'cmd'",
+			want:  []string{"bash -- -c 'cmd'"},
+		},
+		{
+			name:  "bash -c with dynamic arg before -c fails closed",
+			input: `bash "$FLAG" -c 'rm -rf /'`,
+			want:  []string{`bash "$FLAG" -c 'rm -rf /'`},
+		},
+		{
+			name:  "bare bash with script emitted in compound",
+			input: "bash script.sh && rm -rf /",
+			want:  []string{"bash script.sh", "rm -rf /"},
+		},
+		{
+			name:  "bare bash alone returns as-is (fallback)",
+			input: "bash script.sh",
+			want:  []string{"bash script.sh"},
+		},
+		{
+			name:  "bare sh emitted as normal command",
+			input: "sh -x script.sh",
+			want:  []string{"sh -x script.sh"},
+		},
+		{
+			name:  "nested bash -c recursion",
+			input: `bash -c 'bash -c "rm -rf /"'`,
+			want:  []string{"rm -rf /"},
+		},
+		{
+			name:  "bash -c with dynamic arg falls back",
+			input: `bash -c "$CMD"`,
+			want:  []string{`bash -c "$CMD"`},
+		},
+		{
+			name:  "/bin/bash -c extracts inner",
+			input: "/bin/bash -c 'dangerous'",
+			want:  []string{"dangerous"},
+		},
+		{
+			name:  "/bin/sh -c extracts inner",
+			input: "/bin/sh -c 'dangerous'",
+			want:  []string{"dangerous"},
+		},
+		{
+			name:  "bash -c with inner subshell",
+			input: "bash -c 'echo $(whoami)'",
+			want:  []string{"echo $(whoami)", "whoami"},
+		},
+		{
+			name:  "bash without args treated as bare (fallback)",
+			input: "bash",
+			want:  []string{"bash"},
+		},
 	}
 
 	for _, tt := range tests {
