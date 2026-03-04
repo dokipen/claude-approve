@@ -48,8 +48,8 @@ func cmdRun(args []string) {
 
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error loading config: %v\n", err)
-		os.Exit(2)
+		fmt.Fprintf(os.Stderr, "claude-approve config error (passthrough): %v\n", err)
+		return
 	}
 
 	data, err := readStdinWithTimeout(stdinTimeout)
