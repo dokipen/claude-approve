@@ -48,8 +48,8 @@ func cmdRun(args []string) {
 
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error loading config: %v\n", err)
-		os.Exit(2)
+		outputConfigError(fmt.Sprintf("claude-approve config error: %v", err))
+		return
 	}
 
 	data, err := readStdinWithTimeout(stdinTimeout)
@@ -232,6 +232,23 @@ func readStdinWithTimeout(timeout time.Duration) ([]byte, error) {
 		return r.data, r.err
 	case <-ctx.Done():
 		return nil, fmt.Errorf("timed out after %s waiting for stdin", timeout)
+	}
+}
+
+// outputConfigError writes an "ask" decision to stdout so the user sees the
+// config error and can choose to proceed, rather than silently blocking all tools.
+func outputConfigError(reason string) {
+	output := hook.Output{
+		HookSpecificOutput: &hook.HookSpecificOutput{
+			HookEventName:            "PreToolUse",
+			PermissionDecision:       "ask",
+			PermissionDecisionReason: reason,
+		},
+	}
+	enc := json.NewEncoder(os.Stdout)
+	if err := enc.Encode(output); err != nil {
+		fmt.Fprintf(os.Stderr, "error writing output: %v\n", err)
+		os.Exit(2)
 	}
 }
 
