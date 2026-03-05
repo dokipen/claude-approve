@@ -390,6 +390,18 @@ func TestExampleConfig(t *testing.T) {
 			command:      "OWNER=$(gh api user --jq '.login') && echo $OWNER",
 			wantDecision: DecisionAllow,
 		},
+		{
+			name:         "allow: env var prefix before command (assignment stripped)",
+			toolName:     "Bash",
+			command:      "SOME_VAR=/tmp/foo find . -name '*.txt' && file out.png",
+			wantDecision: DecisionAllow,
+		},
+		{
+			name:         "deny: env var prefix before dangerous command",
+			toolName:     "Bash",
+			command:      "SOME_VAR=x rm -rf /",
+			wantDecision: DecisionDeny,
+		},
 
 		// ── Bash: deny in compound ──────────────────
 
