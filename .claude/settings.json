@@ -1,5 +1,16 @@
 {
   "env": {
     "CLAUDE_CODE_ENABLE_TEAMS_EXPERIMENTAL": "1"
+  },
+  "extraKnownMarketplaces": {
+    "claude-cadence": {
+      "source": {
+        "source": "github",
+        "repo": "dokipen/claude-cadence"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "cadence@claude-cadence": true
   }
 }
