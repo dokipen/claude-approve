@@ -60,19 +60,20 @@ claude-approve is security-critical — a bypass means an AI agent could execute
 | Log injection | Crafted JSON corrupting the audit log |
 | Denial of service | Pathological regexes or deeply nested shell commands |
 
-### Security Review Checklist
+### Security Review Focus Areas
 
-- Shell splitting: does the parser handle all evasion techniques?
-- Rule priority: is deny > ask > passthrough > allow strictly enforced?
-- Regex anchoring: are `^` anchors used appropriately?
-- Parse failure fallback: does it safely return the whole command as-is?
-- Variable assignment stripping: does it preserve subshell extraction?
+- **`internal/shellsplit/`**: Does the parser handle heredocs, process substitution, brace expansion? Can backtick/subshell nesting hide commands? Parse failure fallback must return the whole command as-is.
+- **`internal/engine/`**: Is deny > ask > passthrough > allow strictly enforced? Can crafted input match include but dodge exclude? Are regex matches anchored? Can compound aggregation produce unsafe outcomes?
+- **`internal/hook/`**: JSON parsing of unexpected/missing/oversized fields. Tool input is untrusted.
+- **Dependencies**: Run `govulncheck ./...` to check for known vulnerabilities.
 
 ## Performance
 
 - **Target**: < 50ms startup + evaluation (cold start)
-- Every invocation is a fresh subprocess (no long-running server)
+- Every invocation is a fresh subprocess (no long-running server): start → read stdin JSON → parse TOML config → compile regexes → evaluate rules → write stdout JSON → exit
 - Critical hotspot: `engine.Evaluate()` called per tool call
+- Watch for unnecessary allocations in hot paths
+- Shell parser (`mvdan.cc/sh/v3/syntax`) only invoked for Bash commands with compound operators — simple commands should short-circuit
 
 ## Testing
 
@@ -102,3 +103,23 @@ claude-approve validate --config examples/hooks-config.toml
 - Table-driven tests throughout (see `engine_test.go`, `shellsplit_test.go`)
 - `config_integration_test.go` tests the example config against real audit log commands
 - Use `t.Helper()` in test helpers
+- `wantLogCount: -1` means "skip log count check" in engine tests
+
+## Code Review Criteria
+
+### Critical (must fix)
+- Security: regex injection, command injection via shellsplit bypass, path traversal
+- Correctness: wrong decision priority, broken rule evaluation order
+- Data races: concurrent access without synchronization
+- Panics: nil pointer dereference, index out of bounds
+
+### Warnings
+- Missing test coverage for new logic paths
+- Unhelpful error messages
+- Regex patterns that compile but don't match developer intent
+- Unnecessary allocations in hot paths
+
+### Style
+- Prefer `errors.New` over `fmt.Errorf` when no formatting needed, use `%w` for wrapping
+- Table-driven tests for new test cases
+- Keep functions short and focused
