@@ -99,9 +99,7 @@ func splitWithDepth(cmd string, depth int) []string {
 				}
 				// Dynamic or empty inner cmd: emit as-is and let
 				// walk descend to find CmdSubst nodes inside args.
-				var buf bytes.Buffer
-				printer.Print(&buf, stmt)
-				s := strings.TrimSpace(buf.String())
+				s := printCommand(printer, stmt, call)
 				if s != "" {
 					commands = append(commands, s)
 				}
@@ -113,9 +111,7 @@ func splitWithDepth(cmd string, depth int) []string {
 			}
 
 			// Normal command: emit it.
-			var buf bytes.Buffer
-			printer.Print(&buf, stmt)
-			s := strings.TrimSpace(buf.String())
+			s := printCommand(printer, stmt, call)
 			if s != "" {
 				commands = append(commands, s)
 			}
@@ -135,6 +131,27 @@ func splitWithDepth(cmd string, depth int) []string {
 		return []string{cmd}
 	}
 	return commands
+}
+
+// printCommand emits a command string from a statement. If the statement has
+// variable assignments before the command (e.g. "FOO=bar cmd arg"), only the
+// command portion is emitted. The walk will separately extract any command
+// substitutions inside the assignments.
+func printCommand(printer *syntax.Printer, stmt *syntax.Stmt, call *syntax.CallExpr) string {
+	if len(call.Assigns) > 0 && len(call.Args) > 0 {
+		// Build command from Args only, excluding variable assignments.
+		// We construct a new Stmt with a CallExpr that has no Assigns.
+		stripped := *stmt
+		strippedCall := *call
+		strippedCall.Assigns = nil
+		stripped.Cmd = &strippedCall
+		var buf bytes.Buffer
+		printer.Print(&buf, &stripped)
+		return strings.TrimSpace(buf.String())
+	}
+	var buf bytes.Buffer
+	printer.Print(&buf, stmt)
+	return strings.TrimSpace(buf.String())
 }
 
 // classifyShellCall determines if a CallExpr is a bash/sh invocation

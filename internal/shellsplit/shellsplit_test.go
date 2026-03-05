@@ -153,9 +153,9 @@ func TestSplit(t *testing.T) {
 			want:  []string{"FOO=bar"}, // fallback: single element returned as-is
 		},
 		{
-			name:  "variable assignment before command preserved",
+			name:  "variable assignment before command strips assignment",
 			input: "FOO=bar cmd arg",
-			want:  []string{"FOO=bar cmd arg"},
+			want:  []string{"cmd arg"},
 		},
 		{
 			name:  "export with command substitution",
@@ -184,9 +184,29 @@ func TestSplit(t *testing.T) {
 			want:  []string{"dangerous_cmd"},
 		},
 		{
-			name:  "env var prefix before command preserved",
+			name:  "env var prefix before command strips assignment",
 			input: "PATH=/tmp:$PATH cmd",
-			want:  []string{"PATH=/tmp:$PATH cmd"},
+			want:  []string{"cmd"},
+		},
+		{
+			name:  "env var with subshell before command emits both",
+			input: "FOO=$(dangerous_cmd) safe_cmd arg",
+			want:  []string{"safe_cmd arg", "dangerous_cmd"},
+		},
+		{
+			name:  "multiple env vars with subshells before command",
+			input: "A=$(cmd1) B=$(cmd2) main_cmd",
+			want:  []string{"main_cmd", "cmd1", "cmd2"},
+		},
+		{
+			name:  "MAGICK_FONT_PATH env var before magick command",
+			input: "MAGICK_FONT_PATH=/fonts magick -resize 100x100 in.png out.png",
+			want:  []string{"magick -resize 100x100 in.png out.png"},
+		},
+		{
+			name:  "env var compound with && strips assignments",
+			input: "MAGICK_FONT_PATH=/fonts magick in.png out.png && file out.png && magick identify out.png",
+			want:  []string{"magick in.png out.png", "file out.png", "magick identify out.png"},
 		},
 		{
 			name:  "declare with command substitution emits both",
