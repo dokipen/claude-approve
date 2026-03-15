@@ -2,7 +2,7 @@
 # Place at ~/.claude/hooks-config.toml
 
 [audit]
-audit_file = "/tmp/claude-tool-audit.jsonl"
+audit_file = "~/.claude/claude-tool-audit.jsonl"
 audit_level = "matched"  # off | matched | all
 
 # ──────────────────────────────────────────────
