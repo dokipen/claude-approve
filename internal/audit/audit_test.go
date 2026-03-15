@@ -16,7 +16,7 @@ func TestNewLogger(t *testing.T) {
 	tests := []struct {
 		name      string
 		level     config.AuditLevel
-		file      string // relative to tmpdir unless prefixed with ~/
+		fileFn    func(tmpdir string) string // returns the audit file path
 		wantNil   bool
 		wantErr   bool
 		setupHome bool // if true, set HOME to tmpdir for ~ expansion
@@ -24,57 +24,55 @@ func TestNewLogger(t *testing.T) {
 		{
 			name:    "off returns nil",
 			level:   config.AuditOff,
-			file:    "audit.jsonl",
+			fileFn:  func(d string) string { return filepath.Join(d, "audit.jsonl") },
 			wantNil: true,
 		},
 		{
 			name:    "empty file returns nil",
 			level:   config.AuditAll,
-			file:    "",
+			fileFn:  func(string) string { return "" },
 			wantNil: true,
 		},
 		{
-			name:  "absolute path creates file",
-			level: config.AuditAll,
-			file:  "", // filled in by test
+			name:   "absolute path creates file",
+			level:  config.AuditAll,
+			fileFn: func(d string) string { return filepath.Join(d, "audit.jsonl") },
 		},
 		{
 			name:      "tilde expansion creates file",
 			level:     config.AuditAll,
-			file:      "~/.claude/audit.jsonl",
+			fileFn:    func(string) string { return "~/.claude/audit.jsonl" },
 			setupHome: true,
 		},
 		{
 			name:      "tilde expansion with nested dirs",
 			level:     config.AuditAll,
-			file:      "~/.claude/logs/deep/audit.jsonl",
+			fileFn:    func(string) string { return "~/.claude/logs/deep/audit.jsonl" },
 			setupHome: true,
 		},
 		{
-			name:  "creates parent directories",
-			level: config.AuditAll,
-			file:  "", // filled in by test
+			name:   "creates parent directories",
+			level:  config.AuditAll,
+			fileFn: func(d string) string { return filepath.Join(d, "sub", "dir", "audit.jsonl") },
 		},
 		{
-			name:  "existing directory works",
-			level: config.AuditMatched,
-			file:  "", // filled in by test
+			name:   "existing directory works",
+			level:  config.AuditMatched,
+			fileFn: func(d string) string { return filepath.Join(d, "audit.jsonl") },
+		},
+		{
+			name:      "tilde path traversal blocked",
+			level:     config.AuditAll,
+			fileFn:    func(string) string { return "~/../../etc/shadow" },
+			setupHome: true,
+			wantErr:   true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpdir := t.TempDir()
-
-			auditFile := tt.file
-			switch tt.name {
-			case "absolute path creates file":
-				auditFile = filepath.Join(tmpdir, "audit.jsonl")
-			case "creates parent directories":
-				auditFile = filepath.Join(tmpdir, "sub", "dir", "audit.jsonl")
-			case "existing directory works":
-				auditFile = filepath.Join(tmpdir, "audit.jsonl")
-			}
+			auditFile := tt.fileFn(tmpdir)
 
 			if tt.setupHome {
 				t.Setenv("HOME", tmpdir)
@@ -122,8 +120,10 @@ func TestNewLogger(t *testing.T) {
 	}
 }
 
-func TestNewLogger_tildeNotExpanded_withoutSlash(t *testing.T) {
-	// A bare "~" or "~otheruser/path" should NOT be expanded
+func TestNewLogger_tildeOtherUser_notExpanded(t *testing.T) {
+	// ~otheruser/path should NOT be expanded — it doesn't start with ~/
+	// This will fail to create the file (no such directory), which is expected.
+	// The key assertion is that it does NOT attempt home dir expansion.
 	tmpdir := t.TempDir()
 	path := filepath.Join(tmpdir, "~weird", "audit.jsonl")
 
@@ -145,13 +145,14 @@ func TestNewLogger_directoryPermissions(t *testing.T) {
 	tmpdir := t.TempDir()
 	t.Setenv("HOME", tmpdir)
 
-	_, err := NewLogger(&config.Audit{
+	logger, err := NewLogger(&config.Audit{
 		AuditFile:  "~/.claude/audit.jsonl",
 		AuditLevel: config.AuditAll,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	defer logger.Close()
 
 	info, err := os.Stat(filepath.Join(tmpdir, ".claude"))
 	if err != nil {
@@ -180,7 +181,6 @@ func TestLog(t *testing.T) {
 		input        *hook.Input
 		result       engine.Result
 		matched      bool
-		level        config.AuditLevel
 		wantWritten  bool
 		wantDecision string
 	}{
@@ -308,7 +308,7 @@ func TestLog_nilLogger(t *testing.T) {
 
 func TestSummarizeInput(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		input *hook.Input
 		want  string
 	}{

@@ -44,13 +44,16 @@ func NewLogger(cfg *config.Audit) (*Logger, error) {
 			return nil, fmt.Errorf("resolving home dir for audit_file: %w", err)
 		}
 		path = filepath.Join(home, path[2:])
+		if !strings.HasPrefix(path, home+string(os.PathSeparator)) {
+			return nil, fmt.Errorf("audit_file path escapes home directory: %s", cfg.AuditFile)
+		}
 	}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, fmt.Errorf("creating audit log directory: %w", err)
 	}
 
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("opening audit file %s: %w", path, err)
 	}
