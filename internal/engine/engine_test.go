@@ -399,9 +399,27 @@ reason = "Allow all reads"`,
 [[deny]]
 tool = "Bash"
 command_regex = "^gh "
+reason = "No gh commands"
+
+[[allow]]
+tool = "Bash"
+command_regex = "^echo "
+reason = "Echo allowed"`,
+			toolName:           "Bash",
+			command:            `REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner) && echo $REPO`,
+			wantDecision:       DecisionDeny,
+			wantReasonContains: "No gh commands",
+			wantLogCount:       -1,
+		},
+		{
+			name: "var assignment: pure assignment extracts inner command",
+			config: `
+[[deny]]
+tool = "Bash"
+command_regex = "^gh "
 reason = "No gh commands"`,
 			toolName:           "Bash",
-			command:            `REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner) && gh issue list`,
+			command:            `RESULT=$(gh repo view --json name)`,
 			wantDecision:       DecisionDeny,
 			wantReasonContains: "No gh commands",
 			wantLogCount:       -1,
