@@ -391,6 +391,64 @@ reason = "Allow all reads"`,
 			wantDecision: DecisionAllow,
 			wantLogCount: -1,
 		},
+
+		// --- Variable assignment stripping ---
+		{
+			name: "var assignment: deny rule matches gh inside REPO=$(gh ...)",
+			config: `
+[[deny]]
+tool = "Bash"
+command_regex = "^gh "
+reason = "No gh commands"`,
+			toolName:           "Bash",
+			command:            `REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner) && gh issue list`,
+			wantDecision:       DecisionDeny,
+			wantReasonContains: "No gh commands",
+			wantLogCount:       -1,
+		},
+		{
+			name: "var assignment: allow rule matches cat inside PLAN_CONTENT=$(cat ...)",
+			config: `
+[[allow]]
+tool = "Bash"
+command_regex = "^(cat|echo) "
+reason = "Safe read commands"`,
+			toolName:     "Bash",
+			command:      `PLAN_CONTENT=$(cat /path/to/PLAN.md) && echo done`,
+			wantDecision: DecisionAllow,
+			wantLogCount: -1,
+		},
+		{
+			name: "var assignment: env prefix stripped before deny match",
+			config: `
+[[deny]]
+tool = "Bash"
+command_regex = "^rm .*-rf"
+reason = "Dangerous delete"`,
+			toolName:           "Bash",
+			command:            `FOO=bar rm -rf /`,
+			wantDecision:       DecisionDeny,
+			wantReason:         "Dangerous delete",
+			wantLogCount:       -1,
+		},
+		{
+			name: "var assignment: compound with assignment deny trumps allow",
+			config: `
+[[deny]]
+tool = "Bash"
+command_regex = "^rm .*-rf"
+reason = "Dangerous delete"
+
+[[allow]]
+tool = "Bash"
+command_regex = "^echo "
+reason = "Echo allowed"`,
+			toolName:           "Bash",
+			command:            `DANGEROUS=$(rm -rf /) && echo done`,
+			wantDecision:       DecisionDeny,
+			wantReasonContains: "Dangerous delete",
+			wantLogCount:       -1,
+		},
 	}
 
 	for _, tt := range tests {
