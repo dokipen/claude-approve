@@ -126,5 +126,5 @@ claude-approve validate --config examples/hooks-config.toml
 
 ## Ticket Provider
 provider: issues-api
-api_url: http://localhost:4000
+api_url: https://cadence.bootsy.internal
 project_id: claude-approve
