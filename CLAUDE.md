@@ -123,3 +123,8 @@ claude-approve validate --config examples/hooks-config.toml
 - Prefer `errors.New` over `fmt.Errorf` when no formatting needed, use `%w` for wrapping
 - Table-driven tests for new test cases
 - Keep functions short and focused
+
+## Ticket Provider
+provider: issues-api
+api_url: http://localhost:4000
+project_id: claude-approve
