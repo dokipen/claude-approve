@@ -583,6 +583,95 @@ reason = "Glob non-node_modules"`,
 			wantLogCount: -1,
 		},
 
+		// Search tests
+		{
+			name: "search-allow",
+			config: `
+[[allow]]
+tool = "Search"
+file_path_regex = "\\.go$"
+reason = "Search Go files"`,
+			toolName:     "Search",
+			path:         "/src/main.go",
+			wantDecision: DecisionAllow,
+			wantLogCount: -1,
+		},
+		{
+			name: "search-deny-path",
+			config: `
+[[deny]]
+tool = "Search"
+file_path_regex = "/etc"
+reason = "No search in /etc"`,
+			toolName:     "Search",
+			path:         "/etc/shadow",
+			wantDecision: DecisionDeny,
+			wantLogCount: -1,
+		},
+		{
+			name: "search-tool-name-only",
+			config: `
+[[allow]]
+tool = "Search"
+reason = "Allow all search"`,
+			toolName:     "Search",
+			wantDecision: DecisionAllow,
+			wantLogCount: -1,
+		},
+		{
+			name: "search-exclude",
+			config: `
+[[allow]]
+tool = "Search"
+file_path_regex = "."
+file_path_exclude_regex = "vendor/"
+reason = "Search non-vendor"`,
+			toolName:     "Search",
+			path:         "vendor/lib.go",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
+		{
+			name: "search-no-match",
+			config: `
+[[allow]]
+tool = "Search"
+file_path_regex = "\\.py$"
+reason = "Search Python files"`,
+			toolName:     "Search",
+			path:         "/src/main.go",
+			pattern:      "func",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
+		{
+			name: "search-pattern-does-not-bypass-deny",
+			config: `
+[[deny]]
+tool = "Search"
+file_path_regex = "/etc"
+file_path_exclude_regex = "safe_dir"
+reason = "No search in /etc"`,
+			toolName:     "Search",
+			path:         "/etc/shadow",
+			pattern:      "safe_dir",
+			wantDecision: DecisionDeny,
+			wantLogCount: -1,
+		},
+		{
+			name: "search-pattern-field-ignored-by-file-path-regex",
+			config: `
+[[allow]]
+tool = "Search"
+file_path_regex = "\\.go$"
+reason = "Search Go files"`,
+			toolName:     "Search",
+			path:         "/etc/passwd",
+			pattern:      "main.go",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
+
 		{
 			name: "grep-pattern-does-not-bypass-deny",
 			config: `
