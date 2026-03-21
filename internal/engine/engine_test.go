@@ -650,11 +650,11 @@ reason = "Search Python files"`,
 [[deny]]
 tool = "Search"
 file_path_regex = "/etc"
-file_path_exclude_regex = "safe_dir"
+file_path_exclude_regex = "/etc/safe/"
 reason = "No search in /etc"`,
 			toolName:     "Search",
 			path:         "/etc/shadow",
-			pattern:      "safe_dir",
+			pattern:      "/etc/safe/",
 			wantDecision: DecisionDeny,
 			wantLogCount: -1,
 		},

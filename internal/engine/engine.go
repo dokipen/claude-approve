@@ -171,6 +171,9 @@ func matchesInput(rule *config.Rule, input *hook.Input) bool {
 		}
 		return true
 
+	// Search is assumed to use "path" like Grep/Glob. If Search uses a different
+	// field (e.g. "query"), file_path_regex deny rules will silently not match.
+	// Verify against Claude Code hook payload when docs are available.
 	case "Grep", "Glob", "Search":
 		if rule.CompiledFilePath() != nil {
 			return rule.CompiledFilePath().MatchString(input.ToolInput.Path)

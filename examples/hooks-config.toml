@@ -55,14 +55,17 @@ reason = "Read file"
 
 [[allow]]
 tool = "Grep"
+file_path_regex = ".*"
 reason = "Search files"
 
 [[allow]]
 tool = "Glob"
+file_path_regex = ".*"
 reason = "Search files"
 
 [[allow]]
 tool = "Search"
+file_path_regex = ".*"
 reason = "Search files"
 
 [[allow]]
