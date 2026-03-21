@@ -30,6 +30,10 @@ type ToolInput struct {
 
 	// Write
 	Content string `json:"content,omitempty"`
+
+	// Grep, Glob
+	Pattern string `json:"pattern,omitempty"`
+	Path    string `json:"path,omitempty"`
 }
 
 // Output is the JSON response written to stdout.

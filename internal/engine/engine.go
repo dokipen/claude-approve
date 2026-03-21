@@ -165,9 +165,15 @@ func matchesInput(rule *config.Rule, input *hook.Input) bool {
 		// Rule has no command_regex — matches all Bash calls for this tool
 		return true
 
-	case "Read", "Edit", "Write":
+	case "Read", "Edit", "Write", "Update":
 		if rule.CompiledFilePath() != nil {
 			return rule.CompiledFilePath().MatchString(input.ToolInput.FilePath)
+		}
+		return true
+
+	case "Grep", "Glob":
+		if rule.CompiledFilePath() != nil {
+			return rule.CompiledFilePath().MatchString(input.ToolInput.Path)
 		}
 		return true
 
@@ -184,9 +190,14 @@ func isExcluded(rule *config.Rule, input *hook.Input) bool {
 			return rule.CompiledCommandExclude().MatchString(input.ToolInput.Command)
 		}
 
-	case "Read", "Edit", "Write":
+	case "Read", "Edit", "Write", "Update":
 		if rule.CompiledFilePathExclude() != nil {
 			return rule.CompiledFilePathExclude().MatchString(input.ToolInput.FilePath)
+		}
+
+	case "Grep", "Glob":
+		if rule.CompiledFilePathExclude() != nil {
+			return rule.CompiledFilePathExclude().MatchString(input.ToolInput.Path)
 		}
 	}
 	return false

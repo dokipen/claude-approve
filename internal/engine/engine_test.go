@@ -23,7 +23,9 @@ func TestEvaluate(t *testing.T) {
 		config             string
 		toolName           string
 		command            string // Bash
-		filePath           string // Read/Edit/Write
+		filePath           string // Read/Edit/Write/Update
+		pattern            string // Grep/Glob
+		path               string // Grep/Glob
 		wantDecision       Decision
 		wantReason         string // exact match (empty = skip)
 		wantReasonContains string // substring match (empty = skip)
@@ -110,7 +112,7 @@ reason = "Especially no rm -rf"`,
 tool = "Bash"
 command_regex = ".*"
 reason = "All bash"`,
-			toolName:     "Glob",
+			toolName:     "Unknown",
 			wantDecision: DecisionPassthrough,
 			wantLogCount: -1,
 		},
@@ -467,6 +469,197 @@ reason = "Echo allowed"`,
 			wantReasonContains: "Dangerous delete",
 			wantLogCount:       -1,
 		},
+
+		// --- Search and Update tools ---
+
+		// Grep tests
+		{
+			name: "grep-allow",
+			config: `
+[[allow]]
+tool = "Grep"
+file_path_regex = "\\.go$"
+reason = "Grep Go files"`,
+			toolName:     "Grep",
+			path:         "/src/main.go",
+			wantDecision: DecisionAllow,
+			wantLogCount: -1,
+		},
+		{
+			name: "grep-deny-path",
+			config: `
+[[deny]]
+tool = "Grep"
+file_path_regex = "/etc"
+reason = "No grep in /etc"`,
+			toolName:     "Grep",
+			path:         "/etc/shadow",
+			wantDecision: DecisionDeny,
+			wantLogCount: -1,
+		},
+		{
+			name: "grep-tool-name-only",
+			config: `
+[[allow]]
+tool = "Grep"
+reason = "Allow all grep"`,
+			toolName:     "Grep",
+			wantDecision: DecisionAllow,
+			wantLogCount: -1,
+		},
+		{
+			name: "grep-exclude",
+			config: `
+[[allow]]
+tool = "Grep"
+file_path_regex = "."
+file_path_exclude_regex = "vendor/"
+reason = "Grep non-vendor"`,
+			toolName:     "Grep",
+			path:         "vendor/lib.go",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
+		{
+			name: "grep-no-match",
+			config: `
+[[allow]]
+tool = "Grep"
+file_path_regex = "\\.py$"
+reason = "Grep Python files"`,
+			toolName:     "Grep",
+			path:         "/src/main.go",
+			pattern:      "func",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
+
+		// Glob tests
+		{
+			name: "glob-allow",
+			config: `
+[[allow]]
+tool = "Glob"
+file_path_regex = "/src"
+reason = "Glob in src"`,
+			toolName:     "Glob",
+			path:         "/src",
+			wantDecision: DecisionAllow,
+			wantLogCount: -1,
+		},
+		{
+			name: "glob-deny-path",
+			config: `
+[[deny]]
+tool = "Glob"
+file_path_regex = "/etc"
+reason = "No glob in /etc"`,
+			toolName:     "Glob",
+			path:         "/etc",
+			wantDecision: DecisionDeny,
+			wantLogCount: -1,
+		},
+		{
+			name: "glob-tool-name-only",
+			config: `
+[[allow]]
+tool = "Glob"
+reason = "Allow all glob"`,
+			toolName:     "Glob",
+			wantDecision: DecisionAllow,
+			wantLogCount: -1,
+		},
+		{
+			name: "glob-exclude",
+			config: `
+[[allow]]
+tool = "Glob"
+file_path_regex = "."
+file_path_exclude_regex = "node_modules"
+reason = "Glob non-node_modules"`,
+			toolName:     "Glob",
+			path:         "node_modules",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
+
+		{
+			name: "grep-pattern-does-not-bypass-deny",
+			config: `
+[[deny]]
+tool = "Grep"
+file_path_regex = "/etc"
+file_path_exclude_regex = "safe_dir"
+reason = "No grep in /etc"`,
+			toolName:     "Grep",
+			path:         "/etc/shadow",
+			pattern:      "safe_dir",
+			wantDecision: DecisionDeny,
+			wantLogCount: -1,
+		},
+		{
+			name: "grep-pattern-field-ignored-by-file-path-regex",
+			config: `
+[[allow]]
+tool = "Grep"
+file_path_regex = "\\.go$"
+reason = "Grep Go files"`,
+			toolName:     "Grep",
+			path:         "/etc/passwd",
+			pattern:      "main.go",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
+
+		// Update tests
+		{
+			name: "update-allow",
+			config: `
+[[allow]]
+tool = "Update"
+file_path_regex = "\\.go$"
+reason = "Update Go files"`,
+			toolName:     "Update",
+			filePath:     "/src/main.go",
+			wantDecision: DecisionAllow,
+			wantLogCount: -1,
+		},
+		{
+			name: "update-deny",
+			config: `
+[[deny]]
+tool = "Update"
+file_path_regex = "\\.env"
+reason = "No update env files"`,
+			toolName:     "Update",
+			filePath:     ".env",
+			wantDecision: DecisionDeny,
+			wantLogCount: -1,
+		},
+		{
+			name: "update-tool-name-only",
+			config: `
+[[allow]]
+tool = "Update"
+reason = "Allow all updates"`,
+			toolName:     "Update",
+			filePath:     "/any/file.txt",
+			wantDecision: DecisionAllow,
+			wantLogCount: -1,
+		},
+		{
+			name: "update-exclude",
+			config: `
+[[allow]]
+tool = "Update"
+file_path_regex = "."
+file_path_exclude_regex = "vendor/"
+reason = "Update non-vendor"`,
+			toolName:     "Update",
+			filePath:     "vendor/lib.go",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
 	}
 
 	for _, tt := range tests {
@@ -478,6 +671,8 @@ reason = "Echo allowed"`,
 				ToolInput: hook.ToolInput{
 					Command:  tt.command,
 					FilePath: tt.filePath,
+					Pattern:  tt.pattern,
+					Path:     tt.path,
 				},
 			}
 
