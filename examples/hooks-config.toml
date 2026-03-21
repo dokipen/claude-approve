@@ -54,6 +54,21 @@ file_path_regex = ".*"
 reason = "Read file"
 
 [[allow]]
+tool = "Grep"
+file_path_regex = ".*"
+reason = "Search files"
+
+[[allow]]
+tool = "Glob"
+file_path_regex = ".*"
+reason = "Search files"
+
+[[allow]]
+tool = "Search"
+file_path_regex = ".*"
+reason = "Search files"
+
+[[allow]]
 tool = "Edit"
 file_path_regex = "\\.(go|dart|ts|js|py|rs|toml|yaml|yml|json|arb|md|txt|sh|css|html|xml|sql)$"
 file_path_exclude_regex = "\\.(env|pem|key|secret)"

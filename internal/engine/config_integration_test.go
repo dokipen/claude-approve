@@ -39,6 +39,7 @@ func TestExampleConfig(t *testing.T) {
 		toolName     string
 		command      string
 		filePath     string
+		path         string
 		wantDecision Decision
 	}{
 		// ── Bash: deny ──────────────────────────────
@@ -537,6 +538,20 @@ func TestExampleConfig(t *testing.T) {
 			filePath:     "/project/go.sum",
 			wantDecision: DecisionAsk,
 		},
+
+		// ── Search tool ─────────────────────────────────
+
+		{
+			name:         "allow: search any path",
+			toolName:     "Search",
+			path:         "/src/main.go",
+			wantDecision: DecisionAllow,
+		},
+		{
+			name:         "allow: search with empty path",
+			toolName:     "Search",
+			wantDecision: DecisionAllow,
+		},
 	}
 
 	for _, tt := range tests {
@@ -546,6 +561,7 @@ func TestExampleConfig(t *testing.T) {
 				ToolInput: hook.ToolInput{
 					Command:  tt.command,
 					FilePath: tt.filePath,
+					Path:     tt.path,
 				},
 			}
 

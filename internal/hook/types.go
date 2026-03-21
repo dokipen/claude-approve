@@ -31,7 +31,7 @@ type ToolInput struct {
 	// Write
 	Content string `json:"content,omitempty"`
 
-	// Grep, Glob
+	// Grep, Glob, Search (NOTE: Search is assumed to use "path"; unverified — see engine.go)
 	Pattern string `json:"pattern,omitempty"`
 	Path    string `json:"path,omitempty"`
 }
