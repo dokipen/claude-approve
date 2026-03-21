@@ -77,17 +77,11 @@ func cmdRun(args []string) {
 		}
 	}()
 
-	// Log matched log rules
-	for _, lr := range logResults {
-		if logger != nil {
-			logger.Log(&input, lr, true)
-		}
-	}
-
-	// Log the permission decision
-	matched := result.Decision != engine.DecisionPassthrough
+	// Log one combined entry per tool invocation
 	if logger != nil {
-		logger.Log(&input, result, matched)
+		if err := logger.LogCombined(&input, result, logResults); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: audit log write failed: %v\n", err)
+		}
 	}
 
 	// Output decision

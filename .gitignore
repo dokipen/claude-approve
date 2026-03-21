@@ -1,3 +1,5 @@
 /claude-approve
 *.exe
 dist/
+.vscode/
+.worktrees/

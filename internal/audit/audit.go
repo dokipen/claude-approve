@@ -16,13 +16,14 @@ import (
 
 // Entry is a single audit log record.
 type Entry struct {
-	Timestamp  string `json:"timestamp"`
-	ToolName   string `json:"tool_name"`
-	ToolInput  string `json:"tool_input"`
-	RuleType   string `json:"rule_type,omitempty"`
-	RuleTool   string `json:"rule_tool,omitempty"`
-	RuleReason string `json:"rule_reason,omitempty"`
-	Decision   string `json:"decision"`
+	Timestamp  string   `json:"timestamp"`
+	ToolName   string   `json:"tool_name"`
+	ToolInput  string   `json:"tool_input"`
+	RuleType   string   `json:"rule_type,omitempty"`
+	RuleTool   string   `json:"rule_tool,omitempty"`
+	RuleReason string   `json:"rule_reason,omitempty"`
+	Decision   string   `json:"decision"`
+	LogReasons []string `json:"log_reasons,omitempty"`
 }
 
 // Logger writes audit entries to a file.
@@ -98,6 +99,58 @@ func (l *Logger) Log(input *hook.Input, result engine.Result, matched bool) erro
 
 	if result.Decision == "" {
 		entry.Decision = "passthrough"
+	}
+
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return fmt.Errorf("marshaling audit entry: %w", err)
+	}
+
+	if _, err := fmt.Fprintf(l.file, "%s\n", data); err != nil {
+		return fmt.Errorf("writing audit entry: %w", err)
+	}
+	return nil
+}
+
+// LogCombined writes a single audit entry combining the permission decision
+// and any matched log-rule reasons. This ensures exactly one line per tool invocation.
+func (l *Logger) LogCombined(input *hook.Input, result engine.Result, logResults []engine.Result) error {
+	if l == nil {
+		return nil
+	}
+
+	matched := result.Decision != "" || len(logResults) > 0
+	if l.level == config.AuditMatched && !matched {
+		return nil
+	}
+
+	inputSummary := summarizeInput(input)
+	entry := Entry{
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		ToolName:  input.ToolName,
+		ToolInput: inputSummary,
+		Decision:  string(result.Decision),
+	}
+
+	if result.Rule != nil {
+		entry.RuleType = string(result.Rule.Type)
+		entry.RuleTool = result.Rule.Tool
+		entry.RuleReason = result.Rule.Reason
+	}
+
+	if result.Decision == "" {
+		entry.Decision = "passthrough"
+		entry.RuleReason = "no rule matched"
+	}
+
+	if len(logResults) > 0 {
+		reasons := make([]string, 0, len(logResults))
+		for _, lr := range logResults {
+			if lr.Rule != nil && lr.Rule.Reason != "" {
+				reasons = append(reasons, lr.Rule.Reason)
+			}
+		}
+		entry.LogReasons = reasons
 	}
 
 	data, err := json.Marshal(entry)

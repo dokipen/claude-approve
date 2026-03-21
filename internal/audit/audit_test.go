@@ -306,6 +306,244 @@ func TestLog_nilLogger(t *testing.T) {
 	}
 }
 
+func TestLogCombined(t *testing.T) {
+	logRule := &config.Rule{Type: config.RuleLog, Tool: "Bash", Reason: "Audit"}
+
+	tests := []struct {
+		name            string
+		result          engine.Result
+		logResults      []engine.Result
+		wantDecision    string
+		wantRuleReason  string
+		wantLogReasons  []string
+	}{
+		{
+			name:           "passthrough with log rule",
+			result:         engine.Result{},
+			logResults:     []engine.Result{{Rule: logRule, Reason: "Audit"}},
+			wantDecision:   "passthrough",
+			wantRuleReason: "no rule matched",
+			wantLogReasons: []string{"Audit"},
+		},
+		{
+			name: "deny with log rule",
+			result: engine.Result{
+				Decision: "deny",
+				Rule:     &config.Rule{Type: config.RuleDeny, Tool: "Bash", Reason: "Blocked rm -rf"},
+				Reason:   "Blocked rm -rf",
+			},
+			logResults:     []engine.Result{{Rule: logRule, Reason: "Audit"}},
+			wantDecision:   "deny",
+			wantRuleReason: "Blocked rm -rf",
+			wantLogReasons: []string{"Audit"},
+		},
+		{
+			name:           "passthrough no log rules",
+			result:         engine.Result{},
+			logResults:     nil,
+			wantDecision:   "passthrough",
+			wantRuleReason: "no rule matched",
+			wantLogReasons: nil,
+		},
+		{
+			name: "allow with no log rules",
+			result: engine.Result{
+				Decision: "allow",
+				Rule:     &config.Rule{Type: config.RuleAllow, Tool: "Bash", Reason: "Simple command"},
+				Reason:   "Simple command",
+			},
+			logResults:     nil,
+			wantDecision:   "allow",
+			wantRuleReason: "Simple command",
+			wantLogReasons: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpdir := t.TempDir()
+			logFile := filepath.Join(tmpdir, "audit.jsonl")
+
+			logger, err := NewLogger(&config.Audit{
+				AuditFile:  logFile,
+				AuditLevel: config.AuditAll,
+			})
+			if err != nil {
+				t.Fatalf("NewLogger: %v", err)
+			}
+			defer logger.Close()
+
+			input := &hook.Input{
+				ToolName:  "Bash",
+				ToolInput: hook.ToolInput{Command: "ls"},
+			}
+
+			if err := logger.LogCombined(input, tt.result, tt.logResults); err != nil {
+				t.Fatalf("LogCombined: %v", err)
+			}
+
+			data, err := os.ReadFile(logFile)
+			if err != nil {
+				t.Fatalf("ReadFile: %v", err)
+			}
+
+			lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+			if len(lines) != 1 {
+				t.Fatalf("expected exactly 1 line, got %d: %q", len(lines), data)
+			}
+
+			var entry Entry
+			if err := json.Unmarshal([]byte(lines[0]), &entry); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+
+			if entry.Decision != tt.wantDecision {
+				t.Errorf("decision = %q, want %q", entry.Decision, tt.wantDecision)
+			}
+			if entry.RuleReason != tt.wantRuleReason {
+				t.Errorf("rule_reason = %q, want %q", entry.RuleReason, tt.wantRuleReason)
+			}
+			if len(entry.LogReasons) != len(tt.wantLogReasons) {
+				t.Errorf("log_reasons = %v, want %v", entry.LogReasons, tt.wantLogReasons)
+			} else {
+				for i, r := range tt.wantLogReasons {
+					if entry.LogReasons[i] != r {
+						t.Errorf("log_reasons[%d] = %q, want %q", i, entry.LogReasons[i], r)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestLogCombined_matchedLevel_writesPassthroughWithLogRules(t *testing.T) {
+	tmpdir := t.TempDir()
+	logFile := filepath.Join(tmpdir, "audit.jsonl")
+
+	logger, err := NewLogger(&config.Audit{
+		AuditFile:  logFile,
+		AuditLevel: config.AuditMatched,
+	})
+	if err != nil {
+		t.Fatalf("NewLogger: %v", err)
+	}
+	defer logger.Close()
+
+	logRule := &config.Rule{Type: config.RuleLog, Tool: "Bash", Reason: "Audit"}
+	err = logger.LogCombined(&hook.Input{
+		ToolName:  "Bash",
+		ToolInput: hook.ToolInput{Command: "ls"},
+	}, engine.Result{}, []engine.Result{{Rule: logRule, Reason: "Audit"}})
+	if err != nil {
+		t.Fatalf("LogCombined: %v", err)
+	}
+
+	data, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("expected 1 line (log rule matched), got %d", len(lines))
+	}
+}
+
+func TestLogCombined_exactlyOneLinePerInvocation(t *testing.T) {
+	tmpdir := t.TempDir()
+	logFile := filepath.Join(tmpdir, "audit.jsonl")
+
+	logger, err := NewLogger(&config.Audit{
+		AuditFile:  logFile,
+		AuditLevel: config.AuditAll,
+	})
+	if err != nil {
+		t.Fatalf("NewLogger: %v", err)
+	}
+	defer logger.Close()
+
+	logRule := &config.Rule{Type: config.RuleLog, Tool: "Bash", Reason: "Audit"}
+	inputs := []*hook.Input{
+		{ToolName: "Bash", ToolInput: hook.ToolInput{Command: "ls"}},
+		{ToolName: "Bash", ToolInput: hook.ToolInput{Command: "git status"}},
+		{ToolName: "Read", ToolInput: hook.ToolInput{FilePath: "/tmp/foo"}},
+	}
+	results := []engine.Result{
+		{},
+		{Decision: "allow", Rule: &config.Rule{Type: config.RuleAllow, Tool: "Bash", Reason: "Dev tool"}},
+		{},
+	}
+	logResultSets := [][]engine.Result{
+		{{Rule: logRule, Reason: "Audit"}},
+		{{Rule: logRule, Reason: "Audit"}},
+		nil,
+	}
+
+	for i := range inputs {
+		if err := logger.LogCombined(inputs[i], results[i], logResultSets[i]); err != nil {
+			t.Fatalf("LogCombined[%d]: %v", i, err)
+		}
+	}
+
+	data, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != len(inputs) {
+		t.Fatalf("expected %d lines (one per invocation), got %d:\n%s", len(inputs), len(lines), data)
+	}
+	for i, line := range lines {
+		var entry Entry
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			t.Fatalf("line %d unmarshal: %v", i, err)
+		}
+		if entry.ToolName != inputs[i].ToolName {
+			t.Errorf("line %d: tool_name = %q, want %q", i, entry.ToolName, inputs[i].ToolName)
+		}
+	}
+}
+
+func TestLogCombined_matchedLevel_skipsPassthroughWithNoLogRules(t *testing.T) {
+	tmpdir := t.TempDir()
+	logFile := filepath.Join(tmpdir, "audit.jsonl")
+
+	logger, err := NewLogger(&config.Audit{
+		AuditFile:  logFile,
+		AuditLevel: config.AuditMatched,
+	})
+	if err != nil {
+		t.Fatalf("NewLogger: %v", err)
+	}
+	defer logger.Close()
+
+	err = logger.LogCombined(&hook.Input{
+		ToolName:  "Bash",
+		ToolInput: hook.ToolInput{Command: "ls"},
+	}, engine.Result{}, nil)
+	if err != nil {
+		t.Fatalf("LogCombined: %v", err)
+	}
+
+	data, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if len(data) > 0 {
+		t.Fatalf("expected no output for passthrough at matched level, got %s", data)
+	}
+}
+
+func TestLogCombined_nilLogger(t *testing.T) {
+	var logger *Logger
+	err := logger.LogCombined(&hook.Input{
+		ToolName:  "Bash",
+		ToolInput: hook.ToolInput{Command: "ls"},
+	}, engine.Result{}, nil)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+}
+
 func TestSummarizeInput(t *testing.T) {
 	tests := []struct {
 		name  string

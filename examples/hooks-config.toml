@@ -40,7 +40,7 @@ reason = "Simple command"
 
 [[allow]]
 tool = "Bash"
-command_regex = "^(dart|flutter|gh|git|go|python3|ruby|sbt) [-a-z]"
+command_regex = "^(dart|flutter|gh|git|go|grpcurl|issues|python3|ruby|sbt) [-a-z]"
 reason = "Dev tool"
 
 [[allow]]
