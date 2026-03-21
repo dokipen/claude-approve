@@ -49,9 +49,13 @@ Also note the `audit_level` value if found (default is `"matched"` if not set).
 
 ## Step 2: Show config path and confirm
 
-Tell the user:
+If `audit_level` is `"off"`, stop and tell the user: "Audit logging is disabled in your config (`audit_level = \"off\"`). No log file is being written. To enable logging, set `audit_level = \"matched\"` or `\"all\"` in the `[audit]` section of your hooks-config.toml."
+
+Otherwise, tell the user:
 - The resolved audit log file path (with `~` expanded to the actual home directory)
-- The `audit_level` if found (and explain what it means for passthrough entries)
+- The `audit_level` if found, with a brief explanation:
+  - `matched`: only entries where a rule matched are logged; passthrough entries only appear if a `[[log]]` rule fired
+  - `all`: every tool invocation is logged, including unmatched ones
 - Ask: "Should I proceed with reading this file?"
 
 Wait for confirmation before continuing.
@@ -154,7 +158,7 @@ for e in prompt_entries:
         pattern = ext if ext else '(no extension)'
         groups[(pattern, tool)] += 1
     elif tool in ('Grep', 'Glob'):
-        groups[(tool, tool)] += 1
+        groups[('(all)', tool)] += 1
     else:
         groups[(inp[:40] if inp else '(empty)', tool)] += 1
 
@@ -223,6 +227,6 @@ If no recommendations are possible (all patterns already covered), say so.
 
 Ask the user: "Would you like me to append these recommended rules to your config file at `CONFIG_PATH`?"
 
-- If **yes**: Append the TOML blocks to the config file (do not overwrite — use append). Add a comment header like `# Rules added by /audit on YYYY-MM-DD`. Confirm what was written.
+- If **yes**: Before appending, scan the existing config file for any of the exact `command_regex` or `file_path_regex` values in the recommended rules — warn the user if any are already present (to avoid duplicates). Append only the non-duplicate rules. Add a comment header like `# Rules added by /audit on YYYY-MM-DD`. Confirm exactly which rules were written.
 - If **no**: Tell the user they can copy-paste the blocks above manually.
 - If the config file path is unknown (no config found in step 1): Inform the user and suggest they add the rules to their config manually.
