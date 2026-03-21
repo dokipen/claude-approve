@@ -178,3 +178,61 @@ func TestLoadMissingFile(t *testing.T) {
 		t.Error("expected error for missing file, got nil")
 	}
 }
+
+func TestParseToolRegex(t *testing.T) {
+	cfg, err := Parse(`
+[[allow]]
+tool_regex = "^mcp__workshop__"
+reason = "Workshop MCP tools"
+`)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+	if len(cfg.Rules) != 1 {
+		t.Fatalf("got %d rules, want 1", len(cfg.Rules))
+	}
+	r := cfg.Rules[0]
+	if r.ToolRegex != "^mcp__workshop__" {
+		t.Errorf("ToolRegex = %q, want %q", r.ToolRegex, "^mcp__workshop__")
+	}
+	if r.CompiledToolRegex() == nil {
+		t.Error("tool regex not compiled")
+	}
+	if !r.CompiledToolRegex().MatchString("mcp__workshop__list_tracks") {
+		t.Error("compiled regex should match mcp__workshop__list_tracks")
+	}
+}
+
+func TestParseInvalidToolRegex(t *testing.T) {
+	_, err := Parse(`
+[[allow]]
+tool_regex = "["
+reason = "bad regex"
+`)
+	if err == nil {
+		t.Error("expected error for invalid tool_regex, got nil")
+	}
+}
+
+func TestParseBothToolAndToolRegex(t *testing.T) {
+	_, err := Parse(`
+[[allow]]
+tool = "Bash"
+tool_regex = "^Bash$"
+reason = "both specified"
+`)
+	if err == nil {
+		t.Error("expected error when both tool and tool_regex are set, got nil")
+	}
+}
+
+func TestParseNeitherToolNorToolRegex(t *testing.T) {
+	_, err := Parse(`
+[[allow]]
+command_regex = "^git "
+reason = "no tool specified"
+`)
+	if err == nil {
+		t.Error("expected error when neither tool nor tool_regex is set, got nil")
+	}
+}

@@ -168,13 +168,11 @@ func summarizeInput(input *hook.Input) string {
 	switch input.ToolName {
 	case "Bash":
 		return input.ToolInput.Command
-	case "Read":
+	case "Read", "Edit", "Write":
 		return input.ToolInput.FilePath
-	case "Edit":
-		return input.ToolInput.FilePath
-	case "Write":
-		return input.ToolInput.FilePath
+	case "Grep", "Glob":
+		return input.ToolInput.Path
 	default:
-		return ""
+		return input.ToolName
 	}
 }
