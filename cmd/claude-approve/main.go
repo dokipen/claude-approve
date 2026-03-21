@@ -79,7 +79,9 @@ func cmdRun(args []string) {
 
 	// Log one combined entry per tool invocation
 	if logger != nil {
-		logger.LogCombined(&input, result, logResults)
+		if err := logger.LogCombined(&input, result, logResults); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: audit log write failed: %v\n", err)
+		}
 	}
 
 	// Output decision
