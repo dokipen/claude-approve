@@ -486,14 +486,14 @@ reason = "Grep Go files"`,
 			wantLogCount: -1,
 		},
 		{
-			name: "grep-deny-pattern",
+			name: "grep-deny-path",
 			config: `
 [[deny]]
 tool = "Grep"
-file_path_regex = "password"
-reason = "No password grep"`,
+file_path_regex = "/etc"
+reason = "No grep in /etc"`,
 			toolName:     "Grep",
-			pattern:      "password",
+			path:         "/etc/shadow",
 			wantDecision: DecisionDeny,
 			wantLogCount: -1,
 		},
@@ -540,10 +540,10 @@ reason = "Grep Python files"`,
 			config: `
 [[allow]]
 tool = "Glob"
-file_path_regex = "\\*\\.ts"
-reason = "Glob TypeScript"`,
+file_path_regex = "/src"
+reason = "Glob in src"`,
 			toolName:     "Glob",
-			pattern:      "**/*.ts",
+			path:         "/src",
 			wantDecision: DecisionAllow,
 			wantLogCount: -1,
 		},
@@ -578,7 +578,35 @@ file_path_regex = "."
 file_path_exclude_regex = "node_modules"
 reason = "Glob non-node_modules"`,
 			toolName:     "Glob",
-			pattern:      "node_modules/**/*.js",
+			path:         "node_modules",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
+
+		{
+			name: "grep-pattern-does-not-bypass-deny",
+			config: `
+[[deny]]
+tool = "Grep"
+file_path_regex = "/etc"
+file_path_exclude_regex = "safe_dir"
+reason = "No grep in /etc"`,
+			toolName:     "Grep",
+			path:         "/etc/shadow",
+			pattern:      "safe_dir",
+			wantDecision: DecisionDeny,
+			wantLogCount: -1,
+		},
+		{
+			name: "grep-pattern-field-ignored-by-file-path-regex",
+			config: `
+[[allow]]
+tool = "Grep"
+file_path_regex = "\\.go$"
+reason = "Grep Go files"`,
+			toolName:     "Grep",
+			path:         "/etc/passwd",
+			pattern:      "main.go",
 			wantDecision: DecisionPassthrough,
 			wantLogCount: -1,
 		},

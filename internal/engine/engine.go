@@ -173,8 +173,7 @@ func matchesInput(rule *config.Rule, input *hook.Input) bool {
 
 	case "Grep", "Glob":
 		if rule.CompiledFilePath() != nil {
-			return rule.CompiledFilePath().MatchString(input.ToolInput.Pattern) ||
-				rule.CompiledFilePath().MatchString(input.ToolInput.Path)
+			return rule.CompiledFilePath().MatchString(input.ToolInput.Path)
 		}
 		return true
 
@@ -198,8 +197,7 @@ func isExcluded(rule *config.Rule, input *hook.Input) bool {
 
 	case "Grep", "Glob":
 		if rule.CompiledFilePathExclude() != nil {
-			return rule.CompiledFilePathExclude().MatchString(input.ToolInput.Pattern) ||
-				rule.CompiledFilePathExclude().MatchString(input.ToolInput.Path)
+			return rule.CompiledFilePathExclude().MatchString(input.ToolInput.Path)
 		}
 	}
 	return false
