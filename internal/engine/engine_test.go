@@ -961,6 +961,161 @@ reason = "Update non-vendor"`,
 			wantDecision: DecisionPassthrough,
 			wantLogCount: -1,
 		},
+
+		// --- tool_regex matching ---
+		{
+			name: "tool_regex: match MCP tool",
+			config: `
+[[allow]]
+tool_regex = "^mcp__workshop__"
+reason = "Workshop MCP tools"`,
+			toolName:     "mcp__workshop__workshop_list_tracks",
+			wantDecision: DecisionAllow,
+			wantReason:   "Workshop MCP tools",
+			wantLogCount: -1,
+		},
+		{
+			name: "tool_regex: no match",
+			config: `
+[[allow]]
+tool_regex = "^mcp__workshop__"
+reason = "Workshop MCP tools"`,
+			toolName:     "mcp__ai_cli__run",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
+		{
+			name: "tool_regex: deny MCP tool",
+			config: `
+[[deny]]
+tool_regex = "^mcp__dangerous__"
+reason = "Deny dangerous MCP"`,
+			toolName:     "mcp__dangerous__delete_everything",
+			wantDecision: DecisionDeny,
+			wantReason:   "Deny dangerous MCP",
+			wantLogCount: -1,
+		},
+		{
+			name: "tool_regex: deny takes precedence over allow",
+			config: `
+[[deny]]
+tool_regex = "^mcp__workshop__workshop_delete"
+reason = "No deleting"
+
+[[allow]]
+tool_regex = "^mcp__workshop__"
+reason = "Workshop MCP tools"`,
+			toolName:     "mcp__workshop__workshop_delete_track",
+			wantDecision: DecisionDeny,
+			wantReason:   "No deleting",
+			wantLogCount: -1,
+		},
+		{
+			name: "tool_regex: WebFetch allow",
+			config: `
+[[allow]]
+tool_regex = "^WebFetch$"
+reason = "Web fetch allowed"`,
+			toolName:     "WebFetch",
+			wantDecision: DecisionAllow,
+			wantLogCount: -1,
+		},
+		{
+			name: "tool_regex: WebSearch allow",
+			config: `
+[[allow]]
+tool_regex = "^WebSearch$"
+reason = "Web search allowed"`,
+			toolName:     "WebSearch",
+			wantDecision: DecisionAllow,
+			wantLogCount: -1,
+		},
+		{
+			name: "tool_regex: catch-all MCP",
+			config: `
+[[allow]]
+tool_regex = "^mcp__"
+reason = "All MCP tools"`,
+			toolName:     "mcp__ai_cli_mcp__get_result",
+			wantDecision: DecisionAllow,
+			wantLogCount: -1,
+		},
+		{
+			name: "tool_regex: log rule for MCP tools",
+			config: `
+[[log]]
+tool_regex = "^mcp__"
+reason = "Audit MCP calls"
+
+[[allow]]
+tool_regex = "^mcp__workshop__"
+reason = "Workshop allowed"`,
+			toolName:     "mcp__workshop__workshop_list_tracks",
+			wantDecision: DecisionAllow,
+			wantLogCount: 1,
+		},
+		{
+			name: "tool_regex: rule with command_regex does not match generic tool",
+			config: `
+[[allow]]
+tool_regex = "^mcp__"
+command_regex = "^git "
+reason = "This should not match MCP tools"`,
+			toolName:     "mcp__workshop__list",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
+		{
+			name: "tool_regex: rule with file_path_regex does not match generic tool",
+			config: `
+[[allow]]
+tool_regex = "^mcp__"
+file_path_regex = "\\.go$"
+reason = "This should not match MCP tools"`,
+			toolName:     "mcp__workshop__list",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
+		{
+			name: "tool_regex: mixed exact and regex rules",
+			config: `
+[[allow]]
+tool = "Bash"
+command_regex = "^git "
+reason = "Git commands"
+
+[[allow]]
+tool_regex = "^mcp__workshop__"
+reason = "Workshop MCP"`,
+			toolName:     "Bash",
+			command:      "git status",
+			wantDecision: DecisionAllow,
+			wantReason:   "Git commands",
+			wantLogCount: -1,
+		},
+
+		// --- Generic tool (exact tool match, no constraints) ---
+		{
+			name: "generic tool: exact match with no constraints",
+			config: `
+[[allow]]
+tool = "WebSearch"
+reason = "Allow web search"`,
+			toolName:     "WebSearch",
+			wantDecision: DecisionAllow,
+			wantReason:   "Allow web search",
+			wantLogCount: -1,
+		},
+		{
+			name: "generic tool: exact match does not cross-match",
+			config: `
+[[allow]]
+tool = "WebSearch"
+reason = "Allow web search"`,
+			toolName:     "WebFetch",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
 	}
 
 	for _, tt := range tests {

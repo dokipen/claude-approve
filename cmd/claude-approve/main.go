@@ -192,7 +192,11 @@ func cmdTest(args []string) {
 		fmt.Printf("reason:   %s\n", result.Reason)
 	}
 	if result.Rule != nil {
-		fmt.Printf("matched:  %s rule (tool=%s", result.Rule.Type, result.Rule.Tool)
+		toolDisplay := result.Rule.Tool
+		if toolDisplay == "" {
+			toolDisplay = "~" + result.Rule.ToolRegex
+		}
+		fmt.Printf("matched:  %s rule (tool=%s", result.Rule.Type, toolDisplay)
 		if result.Rule.CommandRegex != "" {
 			fmt.Printf(", command_regex=%s", result.Rule.CommandRegex)
 		}
