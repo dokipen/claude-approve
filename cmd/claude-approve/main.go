@@ -77,17 +77,9 @@ func cmdRun(args []string) {
 		}
 	}()
 
-	// Log matched log rules
-	for _, lr := range logResults {
-		if logger != nil {
-			logger.Log(&input, lr, true)
-		}
-	}
-
-	// Log the permission decision
-	matched := result.Decision != engine.DecisionPassthrough
+	// Log one combined entry per tool invocation
 	if logger != nil {
-		logger.Log(&input, result, matched)
+		logger.LogCombined(&input, result, logResults)
 	}
 
 	// Output decision
