@@ -610,9 +610,10 @@ reason = "Glob Go files"`,
 			wantLogCount: -1,
 		},
 		{
-			// Documents current behavior: file_path_regex is only matched against path,
+			// TODO(#20): security gap — file_path_regex is only matched against path,
 			// not pattern. When path is empty, a deny rule with file_path_regex does not
 			// fire even if pattern contains a sensitive path like /etc/shadow.
+			// Documents current behavior until the engine-level fix lands.
 			name: "glob-empty-path-sensitive-pattern",
 			config: `
 [[deny]]
