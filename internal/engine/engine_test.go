@@ -609,6 +609,22 @@ reason = "Glob Go files"`,
 			wantDecision: DecisionPassthrough,
 			wantLogCount: -1,
 		},
+		{
+			// Documents current behavior: file_path_regex is only matched against path,
+			// not pattern. When path is empty, a deny rule with file_path_regex does not
+			// fire even if pattern contains a sensitive path like /etc/shadow.
+			name: "glob-empty-path-sensitive-pattern",
+			config: `
+[[deny]]
+tool = "Glob"
+file_path_regex = "/etc"
+reason = "No glob in /etc"`,
+			toolName:     "Glob",
+			path:         "",
+			pattern:      "/etc/shadow",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
 
 		// Search tests
 		{
