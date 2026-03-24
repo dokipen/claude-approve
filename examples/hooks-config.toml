@@ -49,8 +49,8 @@ command_regex = "^issues (ticket|label|assign|unassign|block|comment|auth|help)(
 reason = "issues CLI safe subcommand"
 
 # issues project: allow only read-only subcommands (list, view).
-# Audited 2026-03-24: 'create' and 'update' subcommands exist and are state-mutating;
-# auto-approving them would be unsafe.
+# Audited 2026-03-24: subcommands are list, view (read-only), create, update (state-mutating).
+# No delete or archive subcommands exist. Auto-approving create/update would be unsafe.
 [[allow]]
 tool = "Bash"
 command_regex = "^issues project (list|view)( |$)"
