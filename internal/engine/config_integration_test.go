@@ -425,6 +425,48 @@ func TestExampleConfig(t *testing.T) {
 			wantDecision: DecisionDeny,
 		},
 
+		// ── Bash: allow — issues CLI ────────────────
+
+		{
+			name:         "allow: issues ticket view",
+			toolName:     "Bash",
+			command:      "issues ticket view 14",
+			wantDecision: DecisionAllow,
+		},
+		{
+			name:         "allow: issues ticket list",
+			toolName:     "Bash",
+			command:      "issues ticket list --project claude-approve --json",
+			wantDecision: DecisionAllow,
+		},
+		{
+			name:         "allow: issues comment add",
+			toolName:     "Bash",
+			command:      "issues comment add abc123 --body \"hello\" --json",
+			wantDecision: DecisionAllow,
+		},
+		{
+			name:         "allow: issues label list",
+			toolName:     "Bash",
+			command:      "issues label list --json",
+			wantDecision: DecisionAllow,
+		},
+
+		// ── Bash: passthrough — issues not allowlisted ──
+
+		{
+			name:         "passthrough: issues exec not allowlisted",
+			toolName:     "Bash",
+			command:      "issues exec some-script",
+			wantDecision: DecisionPassthrough,
+		},
+		{
+			name:         "passthrough: issues shell not allowlisted",
+			toolName:     "Bash",
+			command:      "issues shell --admin",
+			wantDecision: DecisionPassthrough,
+		},
+
 		// ── Bash: passthrough ───────────────────────
 
 		{
