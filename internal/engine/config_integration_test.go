@@ -425,6 +425,72 @@ func TestExampleConfig(t *testing.T) {
 			wantDecision: DecisionDeny,
 		},
 
+		// ── Bash: allow — issues CLI ────────────────
+
+		{
+			name:         "allow: issues ticket view",
+			toolName:     "Bash",
+			command:      "issues ticket view 14",
+			wantDecision: DecisionAllow,
+		},
+		{
+			name:         "allow: issues ticket (bare subcommand, no trailing arg)",
+			toolName:     "Bash",
+			command:      "issues ticket",
+			wantDecision: DecisionAllow,
+		},
+		{
+			name:         "allow: issues ticket list",
+			toolName:     "Bash",
+			command:      "issues ticket list --project claude-approve --json",
+			wantDecision: DecisionAllow,
+		},
+		{
+			name:         "allow: issues comment add",
+			toolName:     "Bash",
+			command:      "issues comment add abc123 --body \"hello\" --json",
+			wantDecision: DecisionAllow,
+		},
+		{
+			name:         "allow: issues label list",
+			toolName:     "Bash",
+			command:      "issues label list --json",
+			wantDecision: DecisionAllow,
+		},
+
+		// ── Bash: passthrough — issues not allowlisted ──
+
+		{
+			name:         "passthrough: issues delete not allowlisted",
+			toolName:     "Bash",
+			command:      "issues delete 14",
+			wantDecision: DecisionPassthrough,
+		},
+		{
+			name:         "passthrough: issues shell not allowlisted",
+			toolName:     "Bash",
+			command:      "issues shell --admin",
+			wantDecision: DecisionPassthrough,
+		},
+		{
+			name:         "passthrough: issues bare (no subcommand)",
+			toolName:     "Bash",
+			command:      "issues",
+			wantDecision: DecisionPassthrough,
+		},
+		{
+			name:         "passthrough: issues subcommand prefix (ticketfoo)",
+			toolName:     "Bash",
+			command:      "issues ticketfoo exploit",
+			wantDecision: DecisionPassthrough,
+		},
+		{
+			name:         "passthrough: issues mixed-case subcommand",
+			toolName:     "Bash",
+			command:      "Issues ticket view 14",
+			wantDecision: DecisionPassthrough,
+		},
+
 		// ── Bash: passthrough ───────────────────────
 
 		{
