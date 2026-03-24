@@ -582,6 +582,33 @@ reason = "Glob non-node_modules"`,
 			wantDecision: DecisionPassthrough,
 			wantLogCount: -1,
 		},
+		{
+			name: "glob-pattern-does-not-bypass-deny",
+			config: `
+[[deny]]
+tool = "Glob"
+file_path_regex = "/etc"
+file_path_exclude_regex = "safe_dir"
+reason = "No glob in /etc"`,
+			toolName:     "Glob",
+			path:         "/etc/shadow",
+			pattern:      "safe_dir",
+			wantDecision: DecisionDeny,
+			wantLogCount: -1,
+		},
+		{
+			name: "glob-pattern-field-ignored-by-file-path-regex",
+			config: `
+[[allow]]
+tool = "Glob"
+file_path_regex = "\\.go$"
+reason = "Glob Go files"`,
+			toolName:     "Glob",
+			path:         "/etc/passwd",
+			pattern:      "main.go",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
 
 		// Search tests
 		{
