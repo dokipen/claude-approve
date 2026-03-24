@@ -457,6 +457,8 @@ func TestExampleConfig(t *testing.T) {
 			command:      "issues label list --json",
 			wantDecision: DecisionAllow,
 		},
+		{name: "allow: issues project list", toolName: "Bash", command: "issues project list --json", wantDecision: DecisionAllow},
+		{name: "allow: issues project view", toolName: "Bash", command: "issues project view my-project --json", wantDecision: DecisionAllow},
 
 		// ── Bash: passthrough — issues not allowlisted ──
 
@@ -490,6 +492,8 @@ func TestExampleConfig(t *testing.T) {
 			command:      "Issues ticket view 14",
 			wantDecision: DecisionPassthrough,
 		},
+		{name: "passthrough: issues project create not allowlisted", toolName: "Bash", command: "issues project create --name foo", wantDecision: DecisionPassthrough},
+		{name: "passthrough: issues project update not allowlisted", toolName: "Bash", command: "issues project update abc123 --name bar", wantDecision: DecisionPassthrough},
 
 		// ── Bash: passthrough ───────────────────────
 
