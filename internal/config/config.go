@@ -182,7 +182,11 @@ func Parse(data string) (*Config, error) {
 	// Compile all regexes
 	for i := range cfg.Rules {
 		if err := cfg.Rules[i].Compile(); err != nil {
-			return nil, fmt.Errorf("rule %d (%s/%s): %w", i, cfg.Rules[i].Type, cfg.Rules[i].Tool, err)
+			toolID := cfg.Rules[i].Tool
+			if toolID == "" {
+				toolID = cfg.Rules[i].ToolRegex
+			}
+			return nil, fmt.Errorf("rule %d (%s/%s): %w", i, cfg.Rules[i].Type, toolID, err)
 		}
 	}
 

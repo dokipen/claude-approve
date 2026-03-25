@@ -177,12 +177,13 @@ func TestLog(t *testing.T) {
 	defer logger.Close()
 
 	tests := []struct {
-		name         string
-		input        *hook.Input
-		result       engine.Result
-		matched      bool
-		wantWritten  bool
-		wantDecision string
+		name              string
+		input             *hook.Input
+		result            engine.Result
+		matched           bool
+		wantWritten       bool
+		wantDecision      string
+		wantRuleToolRegex string
 	}{
 		{
 			name: "all level writes unmatched",
@@ -219,6 +220,21 @@ func TestLog(t *testing.T) {
 			matched:      false,
 			wantWritten:  true,
 			wantDecision: "passthrough",
+		},
+		{
+			name: "tool_regex rule populates rule_tool_regex",
+			input: &hook.Input{
+				ToolName:  "mcp__workshop__list",
+				ToolInput: hook.ToolInput{},
+			},
+			result: engine.Result{
+				Decision: "allow",
+				Rule:     &config.Rule{Type: config.RuleAllow, ToolRegex: "^mcp__workshop__", Reason: "Workshop MCP"},
+			},
+			matched:           true,
+			wantWritten:       true,
+			wantDecision:      "allow",
+			wantRuleToolRegex: "^mcp__workshop__",
 		},
 	}
 
@@ -260,6 +276,9 @@ func TestLog(t *testing.T) {
 			}
 			if entry.ToolName != tt.input.ToolName {
 				t.Errorf("tool_name = %q, want %q", entry.ToolName, tt.input.ToolName)
+			}
+			if entry.RuleToolRegex != tt.wantRuleToolRegex {
+				t.Errorf("rule_tool_regex = %q, want %q", entry.RuleToolRegex, tt.wantRuleToolRegex)
 			}
 		})
 	}

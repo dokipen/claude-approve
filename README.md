@@ -122,7 +122,7 @@ tool_regex = "^mcp__dangerous__delete"
 reason = "Dangerous MCP operation"
 ```
 
-Rules with `tool_regex` match on the tool name only (no input constraints). If you add `command_regex` or `file_path_regex` to a `tool_regex` rule, it will only match tools that have those input fields (Bash, Read, etc.).
+Adding `command_regex`, `command_exclude_regex`, `file_path_regex`, or `file_path_exclude_regex` to a `tool_regex` rule is a configuration error — these constraints are not supported for generic tools. Use `tool =` (exact match) for structured tools like Bash, Read, Edit, Write, Update, Grep, and Glob.
 
 Each rule must have exactly one of `tool` (exact match) or `tool_regex` (regex match).
 
