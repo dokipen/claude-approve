@@ -181,11 +181,11 @@ func matchesInput(rule *config.Rule, input *hook.Input) bool {
 			if re.MatchString(input.ToolInput.Path) {
 				return true
 			}
-			// When path is empty (means CWD), also check pattern — an agent can
+			// When path is empty (means CWD), also check pattern and Cwd — an agent can
 			// bypass path-based deny rules by omitting path and encoding the
-			// sensitive path in pattern instead.
+			// sensitive path in pattern instead. Cwd reveals the effective target directory.
 			if strings.TrimSpace(input.ToolInput.Path) == "" {
-				return re.MatchString(input.ToolInput.Pattern)
+				return re.MatchString(input.ToolInput.Pattern) || re.MatchString(input.Cwd)
 			}
 			return false
 		}
