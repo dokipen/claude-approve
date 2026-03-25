@@ -179,23 +179,28 @@ type Warning struct {
 }
 
 // Warnings returns a list of non-fatal configuration warnings for cfg.
-// Currently warns about file_path_regex patterns that are not anchored at the
-// start, which allows substring matching and can lead to traversal bypasses.
+// Currently warns about file_path_regex and file_path_exclude_regex patterns
+// that are not anchored at the start, which allows substring matching and can
+// lead to traversal bypasses.
 func Warnings(cfg *Config) []Warning {
 	var warnings []Warning
 	for _, r := range cfg.Rules {
-		if r.FilePathRegex == "" {
-			continue
+		if r.FilePathRegex != "" && !strings.HasPrefix(r.FilePathRegex, "^") {
+			warnings = append(warnings, Warning{
+				Message: fmt.Sprintf(
+					"rule %q: file_path_regex %q is not anchored at the start (no ^); paths are matched as substrings, which may allow traversal bypass",
+					r.Reason, r.FilePathRegex,
+				),
+			})
 		}
-		if strings.HasPrefix(r.FilePathRegex, "^") || strings.HasPrefix(r.FilePathRegex, `\A`) {
-			continue
+		if r.FilePathExcludeRegex != "" && !strings.HasPrefix(r.FilePathExcludeRegex, "^") {
+			warnings = append(warnings, Warning{
+				Message: fmt.Sprintf(
+					"rule %q: file_path_exclude_regex %q is not anchored at the start (no ^); paths are matched as substrings, which may allow traversal bypass",
+					r.Reason, r.FilePathExcludeRegex,
+				),
+			})
 		}
-		warnings = append(warnings, Warning{
-			Message: fmt.Sprintf(
-				"rule %q: file_path_regex %q is not anchored at the start (no ^ or \\A); paths are matched as substrings, which may allow traversal bypass",
-				r.Reason, r.FilePathRegex,
-			),
-		})
 	}
 	return warnings
 }

@@ -196,14 +196,14 @@ reason = "system files"
 			wantWarnings: 0,
 		},
 		{
-			name: `anchored with \A — no warning`,
+			name: `\A is not a valid anchor in RE2 — warning`,
 			toml: `
 [[allow]]
 tool = "Read"
 file_path_regex = "\\A/home/"
 reason = "home dir"
 `,
-			wantWarnings: 0,
+			wantWarnings: 1,
 		},
 		{
 			name: "unanchored extension pattern — warning",
@@ -263,7 +263,7 @@ tool = "Edit"
 file_path_regex = "\\A/home/"
 reason = "home dir"
 `,
-			wantWarnings: 1,
+			wantWarnings: 2,
 		},
 	}
 
