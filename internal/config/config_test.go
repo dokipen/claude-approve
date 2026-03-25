@@ -287,6 +287,27 @@ reason = "system files"
 			wantWarnings: 1,
 		},
 		{
+			name: "grouped alternation — known false positive warning",
+			toml: `
+[[deny]]
+tool = "Write"
+file_path_regex = "^(etc|usr)/"
+reason = "system dirs"
+`,
+			wantWarnings: 1,
+		},
+		{
+			name: "alternation in file_path_exclude_regex — warning",
+			toml: `
+[[allow]]
+tool = "Read"
+file_path_regex = "^/home/"
+file_path_exclude_regex = "^/home/root|^/home/admin"
+reason = "home but not root"
+`,
+			wantWarnings: 0,
+		},
+		{
 			name: "multiple rules — only unanchored ones warn",
 			toml: `
 [[deny]]

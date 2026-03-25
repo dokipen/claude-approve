@@ -180,9 +180,11 @@ type Warning struct {
 
 // hasUnanchoredAlternation reports whether a pattern that starts with "^" has
 // any alternation branch that does not start with "^". This is best-effort
-// only: it splits on "|" without full regex parsing, so it won't detect
-// alternations inside character classes like [a|b] or escaped pipes \|, and
-// won't catch alternations inside groups like (^foo|bar).
+// only: it splits naively on "|" without full regex parsing. Known false
+// positives (safe patterns that trigger a spurious warning):
+//   - grouped alternation: "^(foo|bar)" — the "|" inside the group splits incorrectly
+//   - escaped pipes: "^foo\|bar" — backslash escapes are not respected
+//   - pipes inside character classes: "^foo[a|b]" — the "|" inside [...] splits incorrectly
 func hasUnanchoredAlternation(pattern string) bool {
 	if !strings.HasPrefix(pattern, "^") {
 		return false
@@ -209,18 +211,32 @@ func hasUnanchoredAlternation(pattern string) bool {
 func Warnings(cfg *Config) []Warning {
 	var warnings []Warning
 	for _, r := range cfg.Rules {
-		if r.FilePathRegex != "" && (!strings.HasPrefix(r.FilePathRegex, "^") || hasUnanchoredAlternation(r.FilePathRegex)) {
+		if r.FilePathRegex != "" && !strings.HasPrefix(r.FilePathRegex, "^") {
 			warnings = append(warnings, Warning{
 				Message: fmt.Sprintf(
 					"rule %q: file_path_regex %q is not anchored at the start (no ^); paths are matched as substrings, which may allow traversal bypass",
 					r.Reason, r.FilePathRegex,
 				),
 			})
+		} else if r.FilePathRegex != "" && hasUnanchoredAlternation(r.FilePathRegex) {
+			warnings = append(warnings, Warning{
+				Message: fmt.Sprintf(
+					"rule %q: file_path_regex %q has an alternation branch without a ^ anchor; unanchored branches are matched as substrings, which may allow traversal bypass",
+					r.Reason, r.FilePathRegex,
+				),
+			})
 		}
-		if r.FilePathExcludeRegex != "" && (!strings.HasPrefix(r.FilePathExcludeRegex, "^") || hasUnanchoredAlternation(r.FilePathExcludeRegex)) {
+		if r.FilePathExcludeRegex != "" && !strings.HasPrefix(r.FilePathExcludeRegex, "^") {
 			warnings = append(warnings, Warning{
 				Message: fmt.Sprintf(
 					"rule %q: file_path_exclude_regex %q is not anchored at the start (no ^); paths are matched as substrings, which may allow traversal bypass",
+					r.Reason, r.FilePathExcludeRegex,
+				),
+			})
+		} else if r.FilePathExcludeRegex != "" && hasUnanchoredAlternation(r.FilePathExcludeRegex) {
+			warnings = append(warnings, Warning{
+				Message: fmt.Sprintf(
+					"rule %q: file_path_exclude_regex %q has an alternation branch without a ^ anchor; unanchored branches are matched as substrings, which may allow traversal bypass",
 					r.Reason, r.FilePathExcludeRegex,
 				),
 			})
