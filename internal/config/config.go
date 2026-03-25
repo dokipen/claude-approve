@@ -78,6 +78,10 @@ func (r *Rule) Compile() error {
 		return fmt.Errorf("rule must have either tool or tool_regex")
 	}
 
+	if r.ToolRegex != "" && (r.CommandRegex != "" || r.CommandExcludeRegex != "" || r.FilePathRegex != "" || r.FilePathExcludeRegex != "") {
+		return fmt.Errorf("tool_regex rules cannot have input constraints (command_regex, command_exclude_regex, file_path_regex, file_path_exclude_regex); use tool= for structured tool types")
+	}
+
 	var err error
 	if r.ToolRegex != "" {
 		r.compiledToolRegex, err = regexp.Compile(r.ToolRegex)

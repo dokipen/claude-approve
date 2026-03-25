@@ -310,12 +310,13 @@ func TestLogCombined(t *testing.T) {
 	logRule := &config.Rule{Type: config.RuleLog, Tool: "Bash", Reason: "Audit"}
 
 	tests := []struct {
-		name            string
-		result          engine.Result
-		logResults      []engine.Result
-		wantDecision    string
-		wantRuleReason  string
-		wantLogReasons  []string
+		name               string
+		result             engine.Result
+		logResults         []engine.Result
+		wantDecision       string
+		wantRuleReason     string
+		wantRuleToolRegex  string
+		wantLogReasons     []string
 	}{
 		{
 			name:           "passthrough with log rule",
@@ -356,6 +357,19 @@ func TestLogCombined(t *testing.T) {
 			wantDecision:   "allow",
 			wantRuleReason: "Simple command",
 			wantLogReasons: nil,
+		},
+		{
+			name: "tool_regex rule populates rule_tool_regex",
+			result: engine.Result{
+				Decision: "allow",
+				Rule:     &config.Rule{Type: config.RuleAllow, ToolRegex: "^mcp__workshop__", Reason: "MCP tools"},
+				Reason:   "MCP tools",
+			},
+			logResults:        nil,
+			wantDecision:      "allow",
+			wantRuleReason:    "MCP tools",
+			wantRuleToolRegex: "^mcp__workshop__",
+			wantLogReasons:    nil,
 		},
 	}
 
@@ -402,6 +416,9 @@ func TestLogCombined(t *testing.T) {
 			}
 			if entry.RuleReason != tt.wantRuleReason {
 				t.Errorf("rule_reason = %q, want %q", entry.RuleReason, tt.wantRuleReason)
+			}
+			if entry.RuleToolRegex != tt.wantRuleToolRegex {
+				t.Errorf("rule_tool_regex = %q, want %q", entry.RuleToolRegex, tt.wantRuleToolRegex)
 			}
 			if len(entry.LogReasons) != len(tt.wantLogReasons) {
 				t.Errorf("log_reasons = %v, want %v", entry.LogReasons, tt.wantLogReasons)
@@ -571,9 +588,24 @@ func TestSummarizeInput(t *testing.T) {
 			want:  "/tmp/baz",
 		},
 		{
+			name:  "Update",
+			input: &hook.Input{ToolName: "Update", ToolInput: hook.ToolInput{FilePath: "/tmp/upd"}},
+			want:  "/tmp/upd",
+		},
+		{
+			name:  "Glob",
+			input: &hook.Input{ToolName: "Glob", ToolInput: hook.ToolInput{Path: "/tmp/**"}},
+			want:  "/tmp/**",
+		},
+		{
+			name:  "Grep",
+			input: &hook.Input{ToolName: "Grep", ToolInput: hook.ToolInput{Path: "/tmp"}},
+			want:  "/tmp",
+		},
+		{
 			name:  "unknown tool",
-			input: &hook.Input{ToolName: "Glob", ToolInput: hook.ToolInput{}},
-			want:  "",
+			input: &hook.Input{ToolName: "mcp__something__tool", ToolInput: hook.ToolInput{}},
+			want:  "mcp__something__tool",
 		},
 	}
 

@@ -1055,28 +1055,6 @@ reason = "Workshop allowed"`,
 			wantLogCount: 1,
 		},
 		{
-			name: "tool_regex: rule with command_regex does not match generic tool",
-			config: `
-[[allow]]
-tool_regex = "^mcp__"
-command_regex = "^git "
-reason = "This should not match MCP tools"`,
-			toolName:     "mcp__workshop__list",
-			wantDecision: DecisionPassthrough,
-			wantLogCount: -1,
-		},
-		{
-			name: "tool_regex: rule with file_path_regex does not match generic tool",
-			config: `
-[[allow]]
-tool_regex = "^mcp__"
-file_path_regex = "\\.go$"
-reason = "This should not match MCP tools"`,
-			toolName:     "mcp__workshop__list",
-			wantDecision: DecisionPassthrough,
-			wantLogCount: -1,
-		},
-		{
 			name: "tool_regex: mixed exact and regex rules",
 			config: `
 [[allow]]

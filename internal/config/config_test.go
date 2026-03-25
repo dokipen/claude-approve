@@ -400,3 +400,55 @@ reason = "no tool specified"
 		t.Error("expected error when neither tool nor tool_regex is set, got nil")
 	}
 }
+
+func TestParseToolRegexWithInputConstraints(t *testing.T) {
+	tests := []struct {
+		name   string
+		config string
+	}{
+		{
+			name: "tool_regex with command_regex rejected",
+			config: `
+[[allow]]
+tool_regex = "^mcp__"
+command_regex = "ls"
+reason = "test"
+`,
+		},
+		{
+			name: "tool_regex with file_path_regex rejected",
+			config: `
+[[allow]]
+tool_regex = "^mcp__"
+file_path_regex = "/tmp"
+reason = "test"
+`,
+		},
+		{
+			name: "tool_regex with command_exclude_regex rejected",
+			config: `
+[[allow]]
+tool_regex = "^mcp__"
+command_exclude_regex = "rm"
+reason = "test"
+`,
+		},
+		{
+			name: "tool_regex with file_path_exclude_regex rejected",
+			config: `
+[[allow]]
+tool_regex = "^mcp__"
+file_path_exclude_regex = "/etc"
+reason = "test"
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Parse(tt.config)
+			if err == nil {
+				t.Error("expected error for tool_regex with input constraints, got nil")
+			}
+		})
+	}
+}

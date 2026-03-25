@@ -16,14 +16,15 @@ import (
 
 // Entry is a single audit log record.
 type Entry struct {
-	Timestamp  string   `json:"timestamp"`
-	ToolName   string   `json:"tool_name"`
-	ToolInput  string   `json:"tool_input"`
-	RuleType   string   `json:"rule_type,omitempty"`
-	RuleTool   string   `json:"rule_tool,omitempty"`
-	RuleReason string   `json:"rule_reason,omitempty"`
-	Decision   string   `json:"decision"`
-	LogReasons []string `json:"log_reasons,omitempty"`
+	Timestamp     string   `json:"timestamp"`
+	ToolName      string   `json:"tool_name"`
+	ToolInput     string   `json:"tool_input"`
+	RuleType      string   `json:"rule_type,omitempty"`
+	RuleTool      string   `json:"rule_tool,omitempty"`
+	RuleToolRegex string   `json:"rule_tool_regex,omitempty"`
+	RuleReason    string   `json:"rule_reason,omitempty"`
+	Decision      string   `json:"decision"`
+	LogReasons    []string `json:"log_reasons,omitempty"`
 }
 
 // Logger writes audit entries to a file.
@@ -94,6 +95,7 @@ func (l *Logger) Log(input *hook.Input, result engine.Result, matched bool) erro
 	if result.Rule != nil {
 		entry.RuleType = string(result.Rule.Type)
 		entry.RuleTool = result.Rule.Tool
+		entry.RuleToolRegex = result.Rule.ToolRegex
 		entry.RuleReason = result.Rule.Reason
 	}
 
@@ -135,6 +137,7 @@ func (l *Logger) LogCombined(input *hook.Input, result engine.Result, logResults
 	if result.Rule != nil {
 		entry.RuleType = string(result.Rule.Type)
 		entry.RuleTool = result.Rule.Tool
+		entry.RuleToolRegex = result.Rule.ToolRegex
 		entry.RuleReason = result.Rule.Reason
 	}
 
@@ -168,7 +171,7 @@ func summarizeInput(input *hook.Input) string {
 	switch input.ToolName {
 	case "Bash":
 		return input.ToolInput.Command
-	case "Read", "Edit", "Write":
+	case "Read", "Edit", "Write", "Update":
 		return input.ToolInput.FilePath
 	case "Grep", "Glob":
 		return input.ToolInput.Path
