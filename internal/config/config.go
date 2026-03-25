@@ -204,24 +204,25 @@ type Warning struct {
 	Message string
 }
 
-// hasUnanchoredAlternation reports whether a pattern that starts with "^" has
-// any alternation branch that does not start with "^". This is best-effort
-// only: it splits naively on "|" without full regex parsing. Known false
-// positives (safe patterns that trigger a spurious warning):
+// firstUnanchoredBranch reports whether a pattern that starts with "^" has
+// any alternation branch that does not start with "^", and returns the first
+// such branch. This is best-effort only: it splits naively on "|" without
+// full regex parsing. Known false positives (safe patterns that trigger a
+// spurious warning):
 //   - grouped alternation: "^(foo|bar)" — the "|" inside the group splits incorrectly
 //   - escaped pipes: "^foo\|bar" — backslash escapes are not respected
 //   - pipes inside character classes: "^foo[a|b]" — the "|" inside [...] splits incorrectly
-func hasUnanchoredAlternation(pattern string) bool {
+func firstUnanchoredBranch(pattern string) (string, bool) {
 	if !strings.HasPrefix(pattern, "^") {
-		return false
+		return "", false
 	}
 	branches := strings.Split(pattern, "|")
 	for _, branch := range branches[1:] {
 		if !strings.HasPrefix(branch, "^") {
-			return true
+			return branch, true
 		}
 	}
-	return false
+	return "", false
 }
 
 // Warnings returns a list of non-fatal configuration warnings for cfg.
@@ -244,13 +245,15 @@ func Warnings(cfg *Config) []Warning {
 					r.Reason, r.FilePathRegex,
 				),
 			})
-		} else if r.FilePathRegex != "" && hasUnanchoredAlternation(r.FilePathRegex) {
-			warnings = append(warnings, Warning{
-				Message: fmt.Sprintf(
-					"rule %q: file_path_regex %q has an alternation branch without a ^ anchor; unanchored branches are matched as substrings, which may allow traversal bypass",
-					r.Reason, r.FilePathRegex,
-				),
-			})
+		} else if r.FilePathRegex != "" {
+			if branch, ok := firstUnanchoredBranch(r.FilePathRegex); ok {
+				warnings = append(warnings, Warning{
+					Message: fmt.Sprintf(
+						"rule %q: file_path_regex %q has an alternation branch without a ^ anchor (branch: %q); unanchored branches are matched as substrings, which may allow traversal bypass",
+						r.Reason, r.FilePathRegex, branch,
+					),
+				})
+			}
 		}
 		if r.FilePathExcludeRegex != "" && !strings.HasPrefix(r.FilePathExcludeRegex, "^") {
 			warnings = append(warnings, Warning{
@@ -259,13 +262,15 @@ func Warnings(cfg *Config) []Warning {
 					r.Reason, r.FilePathExcludeRegex,
 				),
 			})
-		} else if r.FilePathExcludeRegex != "" && hasUnanchoredAlternation(r.FilePathExcludeRegex) {
-			warnings = append(warnings, Warning{
-				Message: fmt.Sprintf(
-					"rule %q: file_path_exclude_regex %q has an alternation branch without a ^ anchor; unanchored branches are matched as substrings, which may allow traversal bypass",
-					r.Reason, r.FilePathExcludeRegex,
-				),
-			})
+		} else if r.FilePathExcludeRegex != "" {
+			if branch, ok := firstUnanchoredBranch(r.FilePathExcludeRegex); ok {
+				warnings = append(warnings, Warning{
+					Message: fmt.Sprintf(
+						"rule %q: file_path_exclude_regex %q has an alternation branch without a ^ anchor (branch: %q); unanchored branches are matched as substrings, which may allow traversal bypass",
+						r.Reason, r.FilePathExcludeRegex, branch,
+					),
+				})
+			}
 		}
 	}
 	return warnings

@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -181,9 +182,10 @@ func TestLoadMissingFile(t *testing.T) {
 
 func TestWarnings(t *testing.T) {
 	cases := []struct {
-		name         string
-		toml         string
-		wantWarnings int
+		name                string
+		toml                string
+		wantWarnings        int
+		wantMessageContains string // if non-empty, first warning message must contain this substring
 	}{
 		{
 			name: "anchored with caret — no warning",
@@ -274,7 +276,8 @@ tool = "Write"
 file_path_regex = "^/etc/|unanchored"
 reason = "system files"
 `,
-			wantWarnings: 1,
+			wantWarnings:        1,
+			wantMessageContains: `branch: "unanchored"`,
 		},
 		{
 			name: "alternation multi-branch partial anchor — warning",
@@ -297,7 +300,17 @@ reason = "system dirs"
 			wantWarnings: 1,
 		},
 		{
-			name: "alternation in file_path_exclude_regex — warning",
+			name: "pipe inside character class — known false positive warning",
+			toml: `
+[[deny]]
+tool = "Write"
+file_path_regex = "^foo[a|b]bar"
+reason = "char class with pipe"
+`,
+			wantWarnings: 1,
+		},
+		{
+			name: "anchored alternation in file_path_exclude_regex — no warning",
 			toml: `
 [[allow]]
 tool = "Read"
@@ -338,6 +351,9 @@ reason = "home dir"
 			got := Warnings(cfg)
 			if len(got) != tc.wantWarnings {
 				t.Errorf("Warnings() returned %d warnings, want %d; got: %v", len(got), tc.wantWarnings, got)
+			}
+			if tc.wantMessageContains != "" && len(got) > 0 && !strings.Contains(got[0].Message, tc.wantMessageContains) {
+				t.Errorf("Warnings()[0].Message = %q; want it to contain %q", got[0].Message, tc.wantMessageContains)
 			}
 		})
 	}
