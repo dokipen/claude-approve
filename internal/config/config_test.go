@@ -236,6 +236,17 @@ reason = "all files"
 			wantWarnings: 1,
 		},
 		{
+			name: "unanchored file_path_exclude_regex — warning",
+			toml: `
+[[allow]]
+tool = "Edit"
+file_path_regex = "^\\.go$"
+file_path_exclude_regex = "\\.env"
+reason = "go files excluding env"
+`,
+			wantWarnings: 1,
+		},
+		{
 			name: "empty file_path_regex — no warning",
 			toml: `
 [[deny]]

@@ -182,6 +182,11 @@ type Warning struct {
 // Currently warns about file_path_regex and file_path_exclude_regex patterns
 // that are not anchored at the start, which allows substring matching and can
 // lead to traversal bypasses.
+//
+// This is a best-effort heuristic: it checks whether the pattern string starts
+// with "^". Patterns like "^foo|unanchored" pass the check despite having an
+// unanchored alternation branch. Use anchored patterns throughout to avoid
+// false confidence.
 func Warnings(cfg *Config) []Warning {
 	var warnings []Warning
 	for _, r := range cfg.Rules {
