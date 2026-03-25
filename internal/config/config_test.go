@@ -257,6 +257,36 @@ reason = "dangerous delete"
 			wantWarnings: 0,
 		},
 		{
+			name: "anchored alternation all branches — no warning",
+			toml: `
+[[deny]]
+tool = "Write"
+file_path_regex = "^/etc/|^/usr/"
+reason = "system files"
+`,
+			wantWarnings: 0,
+		},
+		{
+			name: "alternation with unanchored branch — warning",
+			toml: `
+[[deny]]
+tool = "Write"
+file_path_regex = "^/etc/|unanchored"
+reason = "system files"
+`,
+			wantWarnings: 1,
+		},
+		{
+			name: "alternation multi-branch partial anchor — warning",
+			toml: `
+[[deny]]
+tool = "Write"
+file_path_regex = "^/etc/|^/usr/|unanchored"
+reason = "system files"
+`,
+			wantWarnings: 1,
+		},
+		{
 			name: "multiple rules — only unanchored ones warn",
 			toml: `
 [[deny]]
