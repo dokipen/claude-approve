@@ -2,6 +2,7 @@
 package engine
 
 import (
+	"strings"
 	"fmt"
 
 	"github.com/dokipen/claude-approve/internal/config"
@@ -176,7 +177,17 @@ func matchesInput(rule *config.Rule, input *hook.Input) bool {
 	// Verify against Claude Code hook payload when docs are available.
 	case "Grep", "Glob", "Search":
 		if rule.CompiledFilePath() != nil {
-			return rule.CompiledFilePath().MatchString(input.ToolInput.Path)
+			re := rule.CompiledFilePath()
+			if re.MatchString(input.ToolInput.Path) {
+				return true
+			}
+			// When path is empty (means CWD), also check pattern — an agent can
+			// bypass path-based deny rules by omitting path and encoding the
+			// sensitive path in pattern instead.
+			if strings.TrimSpace(input.ToolInput.Path) == "" {
+				return re.MatchString(input.ToolInput.Pattern)
+			}
+			return false
 		}
 		return true
 
@@ -200,6 +211,8 @@ func isExcluded(rule *config.Rule, input *hook.Input) bool {
 
 	case "Grep", "Glob", "Search":
 		if rule.CompiledFilePathExclude() != nil {
+			// Pattern is intentionally not checked here — using pattern to suppress
+			// an exclusion would let an agent craft pattern to escape deny rules.
 			return rule.CompiledFilePathExclude().MatchString(input.ToolInput.Path)
 		}
 	}
