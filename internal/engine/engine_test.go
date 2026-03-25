@@ -769,16 +769,30 @@ reason = "No glob in /etc"`,
 			wantLogCount: -1,
 		},
 		{
-			name:         "glob-empty-path-cwd-does-not-trigger-exclude",
+			// isExcluded only checks path/cwd against file_path_regex (via matchesInput),
+			// then checks path against file_path_exclude_regex. It does NOT check Cwd
+			// against file_path_exclude_regex. So even though Cwd matches the exclude
+			// pattern, the rule still fires and the decision is Deny.
+			name:         "glob-empty-path-cwd-not-checked-by-exclude",
 			toolName:     "Glob",
 			path:         "",
 			pattern:      "*.go",
-			cwd:          "/safe_dir",
-			config:       "[[deny]]\ntool = \"Glob\"\nreason = \"no home\"\nfile_path_regex = \"/home\"\nfile_path_exclude_regex = \"/safe_dir\"",
+			cwd:          "/etc/shadow",
+			config:       "[[deny]]\ntool = \"Glob\"\nreason = \"no etc\"\nfile_path_regex = \"/etc\"\nfile_path_exclude_regex = \"/etc/shadow\"",
+			wantDecision: DecisionDeny,
+			wantLogCount: -1,
+		},
+		{
+			// An absent Cwd (both path and cwd are empty) must not cause a spurious
+			// match against a deny rule whose file_path_regex requires "/etc".
+			name:         "glob-empty-path-empty-cwd-passthrough",
+			toolName:     "Glob",
+			path:         "",
+			pattern:      "*.go",
+			cwd:          "",
+			config:       "[[deny]]\ntool = \"Glob\"\nreason = \"no etc\"\nfile_path_regex = \"/etc\"",
 			wantDecision: DecisionPassthrough,
 			wantLogCount: -1,
-			// This tests that a benign Cwd correctly skips the deny (Cwd doesn't match /home).
-			// A separate invariant is that isExcluded never checks Cwd.
 		},
 
 		// Search tests
