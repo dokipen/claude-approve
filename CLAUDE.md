@@ -8,6 +8,12 @@ A Go CLI tool that acts as a Claude Code `PreToolUse` hook for auto-approving, d
 go vet ./... && go test ./...
 ```
 
+Run vulnerability check (requires `govulncheck` — install with `go install golang.org/x/vuln/cmd/govulncheck@latest`):
+
+```bash
+make vuln
+```
+
 ## Build
 
 ```bash
