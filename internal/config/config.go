@@ -39,6 +39,7 @@ const (
 type Rule struct {
 	Type                 RuleType
 	Tool                 string `toml:"tool"`
+	ToolRegex            string `toml:"tool_regex"`
 	CommandRegex         string `toml:"command_regex"`
 	CommandExcludeRegex  string `toml:"command_exclude_regex"`
 	FilePathRegex        string `toml:"file_path_regex"`
@@ -46,11 +47,15 @@ type Rule struct {
 	Reason               string `toml:"reason"`
 
 	// Compiled regexes (populated by Compile)
+	compiledToolRegex       *regexp.Regexp
 	compiledCommand         *regexp.Regexp
 	compiledCommandExclude  *regexp.Regexp
 	compiledFilePath        *regexp.Regexp
 	compiledFilePathExclude *regexp.Regexp
 }
+
+// CompiledToolRegex returns the compiled tool regex.
+func (r *Rule) CompiledToolRegex() *regexp.Regexp { return r.compiledToolRegex }
 
 // CompiledCommand returns the compiled command regex.
 func (r *Rule) CompiledCommand() *regexp.Regexp { return r.compiledCommand }
@@ -66,7 +71,24 @@ func (r *Rule) CompiledFilePathExclude() *regexp.Regexp { return r.compiledFileP
 
 // Compile pre-compiles all regex patterns in the rule.
 func (r *Rule) Compile() error {
+	if r.Tool != "" && r.ToolRegex != "" {
+		return fmt.Errorf("rule has both tool=%q and tool_regex=%q; use one or the other", r.Tool, r.ToolRegex)
+	}
+	if r.Tool == "" && r.ToolRegex == "" {
+		return fmt.Errorf("rule must have either tool or tool_regex")
+	}
+
+	if r.ToolRegex != "" && (r.CommandRegex != "" || r.CommandExcludeRegex != "" || r.FilePathRegex != "" || r.FilePathExcludeRegex != "") {
+		return fmt.Errorf("tool_regex rules cannot have input constraints (command_regex, command_exclude_regex, file_path_regex, file_path_exclude_regex); use tool= for structured tool types")
+	}
+
 	var err error
+	if r.ToolRegex != "" {
+		r.compiledToolRegex, err = regexp.Compile(r.ToolRegex)
+		if err != nil {
+			return fmt.Errorf("invalid tool_regex %q: %w", r.ToolRegex, err)
+		}
+	}
 	if r.CommandRegex != "" {
 		r.compiledCommand, err = regexp.Compile(r.CommandRegex)
 		if err != nil {
@@ -160,7 +182,11 @@ func Parse(data string) (*Config, error) {
 	// Compile all regexes
 	for i := range cfg.Rules {
 		if err := cfg.Rules[i].Compile(); err != nil {
-			return nil, fmt.Errorf("rule %d (%s/%s): %w", i, cfg.Rules[i].Type, cfg.Rules[i].Tool, err)
+			toolID := cfg.Rules[i].Tool
+			if toolID == "" {
+				toolID = cfg.Rules[i].ToolRegex
+			}
+			return nil, fmt.Errorf("rule %d (%s/%s): %w", i, cfg.Rules[i].Type, toolID, err)
 		}
 	}
 

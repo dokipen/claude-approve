@@ -49,7 +49,7 @@ reason = "Allow all reads"
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|Read|Edit|Write",
+        "matcher": ".*",
         "hooks": [
           {
             "type": "command",
@@ -61,6 +61,9 @@ reason = "Allow all reads"
   }
 }
 ```
+
+> **Note**: Use `"matcher": ".*"` to send all tool calls through claude-approve.
+> Tools without matching rules will passthrough to Claude Code's normal permission system.
 
 3. Use Claude Code as normal. Matching tool calls will be auto-approved or denied based on your rules.
 
@@ -77,7 +80,11 @@ Rules are evaluated in priority order: **deny > ask > allow > log**.
 
 If no rule matches, the tool call falls through to Claude Code's normal permission system (passthrough).
 
-## Supported Tools
+## Tool Matching
+
+### Built-in tools
+
+These tools have structured input matching via `command_regex` / `file_path_regex`:
 
 | Tool | Match fields |
 |------|-------------|
@@ -85,12 +92,39 @@ If no rule matches, the tool call falls through to Claude Code's normal permissi
 | `Read` | `file_path_regex`, `file_path_exclude_regex` |
 | `Edit` | `file_path_regex`, `file_path_exclude_regex` |
 | `Write` | `file_path_regex`, `file_path_exclude_regex` |
+| `Grep` | `file_path_regex`, `file_path_exclude_regex` |
+| `Glob` | `file_path_regex`, `file_path_exclude_regex` |
 
 Each rule matches on:
 - **Include regex**: the tool call must match this pattern
 - **Exclude regex** (optional): if the tool call also matches this, the rule is skipped
 
 This "allow X but not if it also matches Y" pattern prevents command injection while permitting legitimate operations.
+
+### Generic tools (MCP, WebFetch, WebSearch, etc.)
+
+Use `tool_regex` to match any tool by name pattern. This is useful for MCP servers, web tools, and other tools that don't have structured input fields:
+
+```toml
+# Allow all tools from a specific MCP server
+[[allow]]
+tool_regex = "^mcp__workshop__"
+reason = "Workshop MCP tools"
+
+# Allow web tools
+[[allow]]
+tool_regex = "^Web(Fetch|Search)$"
+reason = "Web tools"
+
+# Deny a specific MCP tool
+[[deny]]
+tool_regex = "^mcp__dangerous__delete"
+reason = "Dangerous MCP operation"
+```
+
+Adding `command_regex`, `command_exclude_regex`, `file_path_regex`, or `file_path_exclude_regex` to a `tool_regex` rule is a configuration error — these constraints are not supported for generic tools. Use `tool =` (exact match) for structured tools like Bash, Read, Edit, Write, Update, Grep, and Glob.
+
+Each rule must have exactly one of `tool` (exact match) or `tool_regex` (regex match).
 
 ## Configuration
 
@@ -113,6 +147,16 @@ tool = "Bash"
 command_regex = "^(git|flutter|dart|go) "
 command_exclude_regex = "&&|;|\\||`|\\$\\("
 reason = "Dev commands without chaining"
+
+# Auto-approve MCP tools from trusted servers
+[[allow]]
+tool_regex = "^mcp__workshop__"
+reason = "Workshop MCP tools"
+
+# Auto-approve web tools
+[[allow]]
+tool_regex = "^Web(Fetch|Search)$"
+reason = "Web tools"
 
 # Prompt for confirmation on lock files
 [[ask]]

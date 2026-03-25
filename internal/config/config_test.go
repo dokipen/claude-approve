@@ -342,3 +342,113 @@ reason = "home dir"
 		})
 	}
 }
+
+func TestParseToolRegex(t *testing.T) {
+	cfg, err := Parse(`
+[[allow]]
+tool_regex = "^mcp__workshop__"
+reason = "Workshop MCP tools"
+`)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+	if len(cfg.Rules) != 1 {
+		t.Fatalf("got %d rules, want 1", len(cfg.Rules))
+	}
+	r := cfg.Rules[0]
+	if r.ToolRegex != "^mcp__workshop__" {
+		t.Errorf("ToolRegex = %q, want %q", r.ToolRegex, "^mcp__workshop__")
+	}
+	if r.CompiledToolRegex() == nil {
+		t.Error("tool regex not compiled")
+	}
+	if !r.CompiledToolRegex().MatchString("mcp__workshop__list_tracks") {
+		t.Error("compiled regex should match mcp__workshop__list_tracks")
+	}
+}
+
+func TestParseInvalidToolRegex(t *testing.T) {
+	_, err := Parse(`
+[[allow]]
+tool_regex = "["
+reason = "bad regex"
+`)
+	if err == nil {
+		t.Error("expected error for invalid tool_regex, got nil")
+	}
+}
+
+func TestParseBothToolAndToolRegex(t *testing.T) {
+	_, err := Parse(`
+[[allow]]
+tool = "Bash"
+tool_regex = "^Bash$"
+reason = "both specified"
+`)
+	if err == nil {
+		t.Error("expected error when both tool and tool_regex are set, got nil")
+	}
+}
+
+func TestParseNeitherToolNorToolRegex(t *testing.T) {
+	_, err := Parse(`
+[[allow]]
+command_regex = "^git "
+reason = "no tool specified"
+`)
+	if err == nil {
+		t.Error("expected error when neither tool nor tool_regex is set, got nil")
+	}
+}
+
+func TestParseToolRegexWithInputConstraints(t *testing.T) {
+	tests := []struct {
+		name   string
+		config string
+	}{
+		{
+			name: "tool_regex with command_regex rejected",
+			config: `
+[[allow]]
+tool_regex = "^mcp__"
+command_regex = "ls"
+reason = "test"
+`,
+		},
+		{
+			name: "tool_regex with file_path_regex rejected",
+			config: `
+[[allow]]
+tool_regex = "^mcp__"
+file_path_regex = "/tmp"
+reason = "test"
+`,
+		},
+		{
+			name: "tool_regex with command_exclude_regex rejected",
+			config: `
+[[allow]]
+tool_regex = "^mcp__"
+command_exclude_regex = "rm"
+reason = "test"
+`,
+		},
+		{
+			name: "tool_regex with file_path_exclude_regex rejected",
+			config: `
+[[allow]]
+tool_regex = "^mcp__"
+file_path_exclude_regex = "/etc"
+reason = "test"
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Parse(tt.config)
+			if err == nil {
+				t.Error("expected error for tool_regex with input constraints, got nil")
+			}
+		})
+	}
+}

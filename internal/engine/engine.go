@@ -152,12 +152,21 @@ func evaluateSingle(cfg *config.Config, input *hook.Input) (Result, []Result) {
 }
 
 // matchesTool checks if the rule applies to this tool.
+// Supports exact match via "tool" or regex match via "tool_regex".
 func matchesTool(rule *config.Rule, input *hook.Input) bool {
+	if rule.CompiledToolRegex() != nil {
+		return rule.CompiledToolRegex().MatchString(input.ToolName)
+	}
 	return rule.Tool == input.ToolName
 }
 
 // matchesInput checks if the rule's include patterns match the tool input.
 func matchesInput(rule *config.Rule, input *hook.Input) bool {
+	// tool_regex rules are for generic (non-structured) tools only.
+	// Never apply structured-tool input matching for tool_regex rules.
+	if rule.CompiledToolRegex() != nil {
+		return !hasInputConstraints(rule)
+	}
 	switch input.ToolName {
 	case "Bash":
 		if rule.CompiledCommand() != nil {
@@ -192,12 +201,24 @@ func matchesInput(rule *config.Rule, input *hook.Input) bool {
 		return true
 
 	default:
-		return false
+		// Generic tools (MCP, WebFetch, WebSearch, etc.):
+		// tool-name-only rules match unconditionally. Rules with
+		// command_regex or file_path_regex cannot match (no applicable input).
+		return !hasInputConstraints(rule)
 	}
+}
+
+// hasInputConstraints returns true if the rule has any input-matching patterns.
+func hasInputConstraints(rule *config.Rule) bool {
+	return rule.CompiledCommand() != nil || rule.CompiledFilePath() != nil
 }
 
 // isExcluded checks if the rule's exclude patterns disqualify this input.
 func isExcluded(rule *config.Rule, input *hook.Input) bool {
+	// tool_regex rules cannot have exclude constraints (enforced at config validation time).
+	if rule.CompiledToolRegex() != nil {
+		return false
+	}
 	switch input.ToolName {
 	case "Bash":
 		if rule.CompiledCommandExclude() != nil {
