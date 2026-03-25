@@ -2,6 +2,7 @@
 package engine
 
 import (
+	"strings"
 	"fmt"
 
 	"github.com/dokipen/claude-approve/internal/config"
@@ -183,7 +184,7 @@ func matchesInput(rule *config.Rule, input *hook.Input) bool {
 			// When path is empty (means CWD), also check pattern — an agent can
 			// bypass path-based deny rules by omitting path and encoding the
 			// sensitive path in pattern instead.
-			if input.ToolInput.Path == "" {
+			if strings.TrimSpace(input.ToolInput.Path) == "" {
 				return re.MatchString(input.ToolInput.Pattern)
 			}
 			return false
@@ -210,13 +211,9 @@ func isExcluded(rule *config.Rule, input *hook.Input) bool {
 
 	case "Grep", "Glob", "Search":
 		if rule.CompiledFilePathExclude() != nil {
-			re := rule.CompiledFilePathExclude()
-			if re.MatchString(input.ToolInput.Path) {
-				return true
-			}
-			if input.ToolInput.Path == "" {
-				return re.MatchString(input.ToolInput.Pattern)
-			}
+			// Pattern is intentionally not checked here — using pattern to suppress
+			// an exclusion would let an agent craft pattern to escape deny rules.
+			return rule.CompiledFilePathExclude().MatchString(input.ToolInput.Path)
 		}
 	}
 	return false

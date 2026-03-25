@@ -674,6 +674,37 @@ reason = "No glob in /etc"`,
 			wantDecision: DecisionDeny,
 			wantLogCount: -1,
 		},
+		{
+			// Verify that file_path_exclude_regex does not suppress a deny rule
+			// when path is empty and pattern contains the excluded term.
+			// An agent must not be able to craft pattern to escape a deny rule.
+			name: "glob-empty-path-exclude-does-not-suppress-deny",
+			config: `
+[[deny]]
+tool = "Glob"
+file_path_regex = "/etc"
+file_path_exclude_regex = "shadow"
+reason = "No glob in /etc"`,
+			toolName:     "Glob",
+			path:         "",
+			pattern:      "/etc/shadow",
+			wantDecision: DecisionDeny,
+			wantLogCount: -1,
+		},
+		{
+			// Whitespace-only path is treated as empty: deny fires on pattern.
+			name: "glob-whitespace-path-sensitive-pattern",
+			config: `
+[[deny]]
+tool = "Glob"
+file_path_regex = "/etc"
+reason = "No glob in /etc"`,
+			toolName:     "Glob",
+			path:         "   ",
+			pattern:      "/etc/shadow",
+			wantDecision: DecisionDeny,
+			wantLogCount: -1,
+		},
 
 		// Search tests
 		{
