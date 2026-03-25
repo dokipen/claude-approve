@@ -26,6 +26,7 @@ func TestEvaluate(t *testing.T) {
 		filePath           string // Read/Edit/Write/Update
 		pattern            string // Grep/Glob
 		path               string // Grep/Glob
+		cwd                string // effective working directory
 		wantDecision       Decision
 		wantReason         string // exact match (empty = skip)
 		wantReasonContains string // substring match (empty = skip)
@@ -706,6 +707,80 @@ reason = "No glob in /etc"`,
 			wantLogCount: -1,
 		},
 
+		// Cwd evaluation when path is empty
+		{
+			name:         "glob-empty-path-sensitive-cwd",
+			toolName:     "Glob",
+			path:         "",
+			pattern:      "*.go",
+			cwd:          "/etc/shadow",
+			config:       "[[deny]]\ntool = \"Glob\"\nreason = \"no etc\"\nfile_path_regex = \"/etc\"",
+			wantDecision: DecisionDeny,
+			wantLogCount: -1,
+		},
+		{
+			name:         "grep-empty-path-sensitive-cwd",
+			toolName:     "Grep",
+			path:         "",
+			pattern:      "TODO",
+			cwd:          "/etc/secret",
+			config:       "[[deny]]\ntool = \"Grep\"\nreason = \"no etc\"\nfile_path_regex = \"/etc\"",
+			wantDecision: DecisionDeny,
+			wantLogCount: -1,
+		},
+		{
+			name:         "search-empty-path-sensitive-cwd",
+			toolName:     "Search",
+			path:         "",
+			pattern:      "TODO",
+			cwd:          "/etc/secret",
+			config:       "[[deny]]\ntool = \"Search\"\nreason = \"no etc\"\nfile_path_regex = \"/etc\"",
+			wantDecision: DecisionDeny,
+			wantLogCount: -1,
+		},
+		{
+			name:         "glob-empty-path-benign-cwd",
+			toolName:     "Glob",
+			path:         "",
+			pattern:      "*.go",
+			cwd:          "/home/user/project",
+			config:       "[[deny]]\ntool = \"Glob\"\nreason = \"no etc\"\nfile_path_regex = \"/etc\"",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
+		{
+			name:         "glob-whitespace-path-sensitive-cwd",
+			toolName:     "Glob",
+			path:         "   ",
+			pattern:      "*.go",
+			cwd:          "/etc/shadow",
+			config:       "[[deny]]\ntool = \"Glob\"\nreason = \"no etc\"\nfile_path_regex = \"/etc\"",
+			wantDecision: DecisionDeny,
+			wantLogCount: -1,
+		},
+		{
+			name:         "glob-nonempty-path-cwd-irrelevant",
+			toolName:     "Glob",
+			path:         "/home/user",
+			pattern:      "*.go",
+			cwd:          "/etc/shadow",
+			config:       "[[deny]]\ntool = \"Glob\"\nreason = \"no etc\"\nfile_path_regex = \"/etc\"",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+		},
+		{
+			name:         "glob-empty-path-cwd-does-not-trigger-exclude",
+			toolName:     "Glob",
+			path:         "",
+			pattern:      "*.go",
+			cwd:          "/safe_dir",
+			config:       "[[deny]]\ntool = \"Glob\"\nreason = \"no home\"\nfile_path_regex = \"/home\"\nfile_path_exclude_regex = \"/safe_dir\"",
+			wantDecision: DecisionPassthrough,
+			wantLogCount: -1,
+			// This tests that a benign Cwd correctly skips the deny (Cwd doesn't match /home).
+			// A separate invariant is that isExcluded never checks Cwd.
+		},
+
 		// Search tests
 		{
 			name: "search-allow",
@@ -880,6 +955,7 @@ reason = "Update non-vendor"`,
 
 			input := &hook.Input{
 				ToolName: tt.toolName,
+				Cwd:      tt.cwd,
 				ToolInput: hook.ToolInput{
 					Command:  tt.command,
 					FilePath: tt.filePath,
