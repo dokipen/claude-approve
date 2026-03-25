@@ -297,6 +297,16 @@ reason = "system dirs"
 			wantWarnings: 1,
 		},
 		{
+			name: "pipe inside character class — known false positive warning",
+			toml: `
+[[deny]]
+tool = "Write"
+file_path_regex = "^foo[a|b]bar"
+reason = "char class with pipe"
+`,
+			wantWarnings: 1,
+		},
+		{
 			name: "alternation in file_path_exclude_regex — warning",
 			toml: `
 [[allow]]
