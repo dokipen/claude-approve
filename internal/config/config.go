@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -170,4 +171,31 @@ func Parse(data string) (*Config, error) {
 func Validate(path string) error {
 	_, err := Load(path)
 	return err
+}
+
+// Warning represents a non-fatal configuration issue.
+type Warning struct {
+	Message string
+}
+
+// Warnings returns a list of non-fatal configuration warnings for cfg.
+// Currently warns about file_path_regex patterns that are not anchored at the
+// start, which allows substring matching and can lead to traversal bypasses.
+func Warnings(cfg *Config) []Warning {
+	var warnings []Warning
+	for _, r := range cfg.Rules {
+		if r.FilePathRegex == "" {
+			continue
+		}
+		if strings.HasPrefix(r.FilePathRegex, "^") || strings.HasPrefix(r.FilePathRegex, `\A`) {
+			continue
+		}
+		warnings = append(warnings, Warning{
+			Message: fmt.Sprintf(
+				"rule %q: file_path_regex %q is not anchored at the start (no ^ or \\A); paths are matched as substrings, which may allow traversal bypass",
+				r.Reason, r.FilePathRegex,
+			),
+		})
+	}
+	return warnings
 }

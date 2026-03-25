@@ -97,3 +97,32 @@ audit_level = "bogus"
 		t.Error("expected validate to exit non-zero for invalid config")
 	}
 }
+
+func TestValidateWithUnanchoredRegex(t *testing.T) {
+	binary := buildBinary(t)
+
+	configDir := t.TempDir()
+	configPath := filepath.Join(configDir, "unanchored.toml")
+	if err := os.WriteFile(configPath, []byte(`
+[[deny]]
+tool = "Write"
+file_path_regex = "\\.env$"
+reason = "env files"
+`), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	var stderr bytes.Buffer
+	cmd := exec.Command(binary, "validate", "--config", configPath)
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		t.Errorf("expected validate to exit 0 for config with warnings, got: %v\nstderr: %s", err, stderr.String())
+	}
+
+	stderrStr := stderr.String()
+	if !strings.Contains(stderrStr, "warning") && !strings.Contains(stderrStr, "unanchored") {
+		t.Errorf("expected stderr to contain 'warning' or 'unanchored', got: %s", stderrStr)
+	}
+}
