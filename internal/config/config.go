@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -170,4 +171,41 @@ func Parse(data string) (*Config, error) {
 func Validate(path string) error {
 	_, err := Load(path)
 	return err
+}
+
+// Warning represents a non-fatal configuration issue.
+type Warning struct {
+	Message string
+}
+
+// Warnings returns a list of non-fatal configuration warnings for cfg.
+// Currently warns about file_path_regex and file_path_exclude_regex patterns
+// that are not anchored at the start, which allows substring matching and can
+// lead to traversal bypasses.
+//
+// This is a best-effort heuristic: it checks whether the pattern string starts
+// with "^". Patterns like "^foo|unanchored" pass the check despite having an
+// unanchored alternation branch. Use anchored patterns throughout to avoid
+// false confidence.
+func Warnings(cfg *Config) []Warning {
+	var warnings []Warning
+	for _, r := range cfg.Rules {
+		if r.FilePathRegex != "" && !strings.HasPrefix(r.FilePathRegex, "^") {
+			warnings = append(warnings, Warning{
+				Message: fmt.Sprintf(
+					"rule %q: file_path_regex %q is not anchored at the start (no ^); paths are matched as substrings, which may allow traversal bypass",
+					r.Reason, r.FilePathRegex,
+				),
+			})
+		}
+		if r.FilePathExcludeRegex != "" && !strings.HasPrefix(r.FilePathExcludeRegex, "^") {
+			warnings = append(warnings, Warning{
+				Message: fmt.Sprintf(
+					"rule %q: file_path_exclude_regex %q is not anchored at the start (no ^); paths are matched as substrings, which may allow traversal bypass",
+					r.Reason, r.FilePathExcludeRegex,
+				),
+			})
+		}
+	}
+	return warnings
 }

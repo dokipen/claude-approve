@@ -178,3 +178,116 @@ func TestLoadMissingFile(t *testing.T) {
 		t.Error("expected error for missing file, got nil")
 	}
 }
+
+func TestWarnings(t *testing.T) {
+	cases := []struct {
+		name         string
+		toml         string
+		wantWarnings int
+	}{
+		{
+			name: "anchored with caret — no warning",
+			toml: `
+[[deny]]
+tool = "Write"
+file_path_regex = "^/etc/"
+reason = "system files"
+`,
+			wantWarnings: 0,
+		},
+		{
+			name: `\A is not a valid anchor in RE2 — warning`,
+			toml: `
+[[allow]]
+tool = "Read"
+file_path_regex = "\\A/home/"
+reason = "home dir"
+`,
+			wantWarnings: 1,
+		},
+		{
+			name: "unanchored extension pattern — warning",
+			toml: `
+[[deny]]
+tool = "Write"
+file_path_regex = "\\.go$"
+reason = "go files"
+`,
+			wantWarnings: 1,
+		},
+		{
+			name: "unanchored directory name — warning",
+			toml: `
+[[allow]]
+tool = "Read"
+file_path_regex = "safe_dir"
+reason = "safe directory"
+`,
+			wantWarnings: 1,
+		},
+		{
+			name: "unanchored wildcard — warning",
+			toml: `
+[[ask]]
+tool = "Edit"
+file_path_regex = ".*"
+reason = "all files"
+`,
+			wantWarnings: 1,
+		},
+		{
+			name: "unanchored file_path_exclude_regex — warning",
+			toml: `
+[[allow]]
+tool = "Edit"
+file_path_regex = "^\\.go$"
+file_path_exclude_regex = "\\.env"
+reason = "go files excluding env"
+`,
+			wantWarnings: 1,
+		},
+		{
+			name: "empty file_path_regex — no warning",
+			toml: `
+[[deny]]
+tool = "Bash"
+command_regex = "^rm "
+reason = "dangerous delete"
+`,
+			wantWarnings: 0,
+		},
+		{
+			name: "multiple rules — only unanchored ones warn",
+			toml: `
+[[deny]]
+tool = "Write"
+file_path_regex = "^/etc/"
+reason = "system files"
+
+[[allow]]
+tool = "Read"
+file_path_regex = "\\.log$"
+reason = "log files"
+
+[[ask]]
+tool = "Edit"
+file_path_regex = "\\A/home/"
+reason = "home dir"
+`,
+			wantWarnings: 2,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := Parse(tc.toml)
+			if err != nil {
+				t.Fatalf("Parse failed: %v", err)
+			}
+			got := Warnings(cfg)
+			if len(got) != tc.wantWarnings {
+				t.Errorf("Warnings() returned %d warnings, want %d; got: %v", len(got), tc.wantWarnings, got)
+			}
+		})
+	}
+}

@@ -132,6 +132,10 @@ func cmdValidate(args []string) {
 		}
 	}
 
+	for _, w := range config.Warnings(cfg) {
+		fmt.Fprintf(os.Stderr, "[warning] %s\n", w.Message)
+	}
+
 	fmt.Printf("config OK: %d deny, %d allow, %d ask, %d log rules\n",
 		denyCount, allowCount, askCount, logCount)
 	fmt.Printf("audit: level=%s", cfg.Audit.AuditLevel)

@@ -60,10 +60,17 @@ claude-approve is security-critical — a bypass means an AI agent could execute
 | Log injection | Crafted JSON corrupting the audit log |
 | Denial of service | Pathological regexes or deeply nested shell commands |
 
+**Regex Anchoring**: `file_path_regex` uses Go's `regexp.MatchString` — unanchored substring matching. The path is NOT canonicalized before matching. This has two important consequences:
+
+- A deny rule `\\.env` matches `/project/.env.local` (substring match on `.env`)
+- An allow rule `safe_dir` matches `/safe_dir/../../etc/shadow` (traversal bypass)
+
+For Read/Edit/Write, matching is against `tool_input.file_path`. For Grep/Glob/Search, matching is against `tool_input.path`. Always use `^` to anchor patterns to the path start and `$` to anchor extension patterns to the path end (e.g., `\\.env$` instead of `\\.env`).
+
 ### Security Review Focus Areas
 
 - **`internal/shellsplit/`**: Does the parser handle heredocs, process substitution, brace expansion? Can backtick/subshell nesting hide commands? Parse failure fallback must return the whole command as-is.
-- **`internal/engine/`**: Is deny > ask > passthrough > allow strictly enforced? Can crafted input match include but dodge exclude? Are regex matches anchored? Can compound aggregation produce unsafe outcomes?
+- **`internal/engine/`**: Is deny > ask > passthrough > allow strictly enforced? Can crafted input match include but dodge exclude? Regex matches are NOT anchored (uses `MatchString`). All `file_path_regex` patterns are substring matches — users must use `^` and `$` anchors explicitly. Can compound aggregation produce unsafe outcomes?
 - **`internal/hook/`**: JSON parsing of unexpected/missing/oversized fields. Tool input is untrusted.
 - **Dependencies**: Run `govulncheck ./...` to check for known vulnerabilities.
 

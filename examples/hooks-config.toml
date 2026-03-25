@@ -1,5 +1,14 @@
 # Claude Code Approval Hook Configuration
 # Place at ~/.claude/hooks-config.toml
+#
+# IMPORTANT: file_path_regex uses unanchored substring matching (Go's regexp.MatchString).
+# A pattern like "safe_dir" matches ANY path containing "safe_dir", including traversal
+# paths like "/safe_dir/../../etc/shadow". Use anchors to avoid unintended matches:
+#   ^/project/            anchors to path start  (scope allow rules to a directory)
+#   \.go$                 anchors to path end    (match by file extension)
+#   ^/project/.*\.go$    fully-anchored          (most restrictive; preferred for allow rules)
+# For deny rules, unanchored patterns are usually intentional (block the extension anywhere),
+# but double-check that the pattern cannot be evaded by path manipulation.
 
 [audit]
 audit_file = "~/.claude/claude-tool-audit.jsonl"
@@ -21,7 +30,7 @@ reason = "Blocked sudo/chmod/chown"
 
 [[deny]]
 tool = "Write"
-file_path_regex = "\\.(env|pem|key|secret)$"
+file_path_regex = "\\.(env|pem|key|secret)$"  # anchored at end ($); blocks these extensions anywhere in the path tree
 reason = "Blocked writing secrets (.env/.pem/.key)"
 
 # ──────────────────────────────────────────────
@@ -61,36 +70,39 @@ tool = "Bash"
 command_regex = "^(cd|command|false|hash|printf|pushd|popd|read|set|shift|source|true|type|umask|unset)( |$)"
 reason = "Shell builtin"
 
+# Read/search rules use ".*" to allow all paths (unanchored wildcard — intentionally unrestricted).
+# To scope reads to a specific directory, replace ".*" with an anchored prefix, e.g.:
+#   ^/home/user/project/    allows reads only under that directory
 [[allow]]
 tool = "Read"
-file_path_regex = ".*"
+file_path_regex = ".*"  # unanchored wildcard — matches every path; intentionally unrestricted
 reason = "Read file"
 
 [[allow]]
 tool = "Grep"
-file_path_regex = ".*"
+file_path_regex = ".*"  # unanchored wildcard — matches every path; intentionally unrestricted
 reason = "Search files"
 
 [[allow]]
 tool = "Glob"
-file_path_regex = ".*"
+file_path_regex = ".*"  # unanchored wildcard — matches every path; intentionally unrestricted
 reason = "Search files"
 
 [[allow]]
 tool = "Search"
-file_path_regex = ".*"
+file_path_regex = ".*"  # unanchored wildcard — matches every path; intentionally unrestricted
 reason = "Search files"
 
 [[allow]]
 tool = "Edit"
-file_path_regex = "\\.(go|dart|ts|js|py|rs|toml|yaml|yml|json|arb|md|txt|sh|css|html|xml|sql)$"
-file_path_exclude_regex = "\\.(env|pem|key|secret)"
+file_path_regex = "\\.(go|dart|ts|js|py|rs|toml|yaml|yml|json|arb|md|txt|sh|css|html|xml|sql)$"  # anchored at end ($); matches source extensions anywhere in path
+file_path_exclude_regex = "\\.(env|pem|key|secret)"  # unanchored exclude — blocks secret extensions even without $ anchor
 reason = "Edit source file"
 
 [[allow]]
 tool = "Write"
-file_path_regex = "\\.(go|dart|ts|js|py|rs|toml|yaml|yml|json|arb|md|txt|sh|css|html|xml|sql)$"
-file_path_exclude_regex = "\\.(env|pem|key|secret)"
+file_path_regex = "\\.(go|dart|ts|js|py|rs|toml|yaml|yml|json|arb|md|txt|sh|css|html|xml|sql)$"  # anchored at end ($); matches source extensions anywhere in path
+file_path_exclude_regex = "\\.(env|pem|key|secret)"  # unanchored exclude — blocks secret extensions even without $ anchor
 reason = "Write source file"
 
 [[allow]]
@@ -104,7 +116,7 @@ reason = "Project script"
 
 [[ask]]
 tool = "Edit"
-file_path_regex = "\\.(lock|sum)$"
+file_path_regex = "\\.(lock|sum)$"  # anchored at end ($); prompts on lock/checksum extensions anywhere in path
 reason = "Lock/checksum file"
 
 # ──────────────────────────────────────────────
