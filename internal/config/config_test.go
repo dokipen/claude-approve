@@ -310,6 +310,40 @@ reason = "char class with pipe"
 			wantWarnings: 1,
 		},
 		{
+			name: "trailing pipe in file_path_regex — warning names empty branch explicitly",
+			toml: `
+[[deny]]
+tool = "Write"
+file_path_regex = "^/etc/|"
+reason = "system files"
+`,
+			wantWarnings:        1,
+			wantMessageContains: "empty alternation branch",
+		},
+		{
+			name: "trailing pipe in file_path_exclude_regex — warning names empty branch explicitly",
+			toml: `
+[[allow]]
+tool = "Read"
+file_path_regex = "^/home/"
+file_path_exclude_regex = "^/home/root|"
+reason = "home but not root"
+`,
+			wantWarnings:        1,
+			wantMessageContains: "empty alternation branch",
+		},
+		{
+			name: "middle double pipe — warning names empty branch explicitly",
+			toml: `
+[[deny]]
+tool = "Write"
+file_path_regex = "^/etc/||^/usr/"
+reason = "system files"
+`,
+			wantWarnings:        1,
+			wantMessageContains: "empty alternation branch",
+		},
+		{
 			name: "anchored alternation in file_path_exclude_regex — no warning",
 			toml: `
 [[allow]]

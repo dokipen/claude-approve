@@ -225,6 +225,23 @@ func firstUnanchoredBranch(pattern string) (string, bool) {
 	return "", false
 }
 
+// alternationWarning formats a warning message for a regex field whose
+// alternation contains an unanchored branch. When branch is empty (from a
+// trailing "|" or a middle "||"), the message explicitly calls out the empty
+// branch rather than printing the confusing bare `(branch: "")`.
+func alternationWarning(field, reason, pattern, branch string) string {
+	if branch == "" {
+		return fmt.Sprintf(
+			"rule %q: %s %q has an empty alternation branch without a ^ anchor; empty branches match any path as a substring, which may allow traversal bypass",
+			reason, field, pattern,
+		)
+	}
+	return fmt.Sprintf(
+		"rule %q: %s %q has an alternation branch without a ^ anchor (branch: %q); unanchored branches are matched as substrings, which may allow traversal bypass",
+		reason, field, pattern, branch,
+	)
+}
+
 // Warnings returns a list of non-fatal configuration warnings for cfg.
 // Currently warns about file_path_regex and file_path_exclude_regex patterns
 // that are not anchored at the start, which allows substring matching and can
@@ -248,10 +265,7 @@ func Warnings(cfg *Config) []Warning {
 		} else if r.FilePathRegex != "" {
 			if branch, ok := firstUnanchoredBranch(r.FilePathRegex); ok {
 				warnings = append(warnings, Warning{
-					Message: fmt.Sprintf(
-						"rule %q: file_path_regex %q has an alternation branch without a ^ anchor (branch: %q); unanchored branches are matched as substrings, which may allow traversal bypass",
-						r.Reason, r.FilePathRegex, branch,
-					),
+					Message: alternationWarning("file_path_regex", r.Reason, r.FilePathRegex, branch),
 				})
 			}
 		}
@@ -265,10 +279,7 @@ func Warnings(cfg *Config) []Warning {
 		} else if r.FilePathExcludeRegex != "" {
 			if branch, ok := firstUnanchoredBranch(r.FilePathExcludeRegex); ok {
 				warnings = append(warnings, Warning{
-					Message: fmt.Sprintf(
-						"rule %q: file_path_exclude_regex %q has an alternation branch without a ^ anchor (branch: %q); unanchored branches are matched as substrings, which may allow traversal bypass",
-						r.Reason, r.FilePathExcludeRegex, branch,
-					),
+					Message: alternationWarning("file_path_exclude_regex", r.Reason, r.FilePathExcludeRegex, branch),
 				})
 			}
 		}
