@@ -226,13 +226,13 @@ func firstUnanchoredBranch(pattern string) (string, bool) {
 }
 
 // alternationWarning formats a warning message for a regex field whose
-// alternation contains an unanchored branch. When branch is empty (caused by a
-// trailing "|"), the message explicitly names the empty branch rather than
-// printing the confusing bare `(branch: "")`.
+// alternation contains an unanchored branch. When branch is empty (from a
+// trailing "|" or a middle "||"), the message explicitly calls out the empty
+// branch rather than printing the confusing bare `(branch: "")`.
 func alternationWarning(field, reason, pattern, branch string) string {
 	if branch == "" {
 		return fmt.Sprintf(
-			"rule %q: %s %q has a trailing | that creates an empty unanchored branch; the empty branch matches any path as a substring, which may allow traversal bypass",
+			"rule %q: %s %q has an empty alternation branch without a ^ anchor; empty branches match any path as a substring, which may allow traversal bypass",
 			reason, field, pattern,
 		)
 	}
