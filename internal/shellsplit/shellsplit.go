@@ -87,6 +87,13 @@ func splitWithDepth(cmd string, depth int) []string {
 				break
 			}
 
+			// Skip test/condition commands: [ ... ], test ..., [[ ... ]] (CallExpr form).
+			// These are condition evaluators, not program executors. The walk
+			// continues to descend so any $(dangerous_cmd) inside is still extracted.
+			if isTestCommand(call) {
+				break
+			}
+
 			// Detect bash/sh invocations and handle specially.
 			info := classifyShellCall(call)
 			switch info.action {
@@ -115,7 +122,7 @@ func splitWithDepth(cmd string, depth int) []string {
 			if s != "" {
 				commands = append(commands, s)
 			}
-		case *syntax.DeclClause, *syntax.TestClause:
+		case *syntax.DeclClause:
 			var buf bytes.Buffer
 			printer.Print(&buf, stmt)
 			s := strings.TrimSpace(buf.String())
@@ -152,6 +159,18 @@ func printCommand(printer *syntax.Printer, stmt *syntax.Stmt, call *syntax.CallE
 	var buf bytes.Buffer
 	printer.Print(&buf, stmt)
 	return strings.TrimSpace(buf.String())
+}
+
+// isTestCommand reports whether a CallExpr is a shell test/condition command
+// ([ ... ] or test ...). These are condition evaluators, not program executors,
+// so they should not be emitted as sub-commands. The walk still descends into
+// them to extract any command substitutions (e.g. [ $(dangerous) ]).
+func isTestCommand(call *syntax.CallExpr) bool {
+	if len(call.Args) == 0 {
+		return false
+	}
+	name, ok := wordStaticValue(call.Args[0])
+	return ok && (name == "[" || name == "test")
 }
 
 // classifyShellCall determines if a CallExpr is a bash/sh invocation
