@@ -119,7 +119,7 @@ func TestSplit(t *testing.T) {
 		{
 			name:  "if then else fi",
 			input: "if [ -f foo ]; then echo yes; else echo no; fi",
-			want:  []string{"[ -f foo ]", "echo yes", "echo no"},
+			want:  []string{"echo yes", "echo no"},
 		},
 		{
 			name:  "for loop",
@@ -139,7 +139,33 @@ func TestSplit(t *testing.T) {
 		{
 			name:  "test clause",
 			input: "if [[ -f foo ]]; then echo yes; fi",
-			want:  []string{"[[ -f foo ]]", "echo yes"},
+			want:  []string{"echo yes"},
+		},
+		// Test commands: dangerous command substitutions inside must still be extracted
+		{
+			name:  "dangerous cmd subst in [ ] is extracted",
+			input: "[ $(dangerous_cmd) ]",
+			want:  []string{"dangerous_cmd"},
+		},
+		{
+			name:  "dangerous cmd subst in [[ ]] is extracted",
+			input: "[[ $(dangerous_cmd) == foo ]]",
+			want:  []string{"dangerous_cmd"},
+		},
+		{
+			name:  "dangerous cmd subst in test is extracted",
+			input: "test $(dangerous_cmd)",
+			want:  []string{"dangerous_cmd"},
+		},
+		{
+			name:  "compound script with if [ ] emits only inner commands",
+			input: "if [ -z \"$CADENCE_ROOT\" ] && [ -f \".claude-plugin/plugin.json\" ]; then CADENCE_ROOT=\"$(pwd)\"; fi",
+			want:  []string{"pwd"},
+		},
+		{
+			name:  "test command standalone skipped",
+			input: "test -z \"$VAR\"",
+			want:  []string{"test -z \"$VAR\""}, // fallback: single element returned as-is
 		},
 		// Variable assignments — should not emit the assignment wrapper
 		{
