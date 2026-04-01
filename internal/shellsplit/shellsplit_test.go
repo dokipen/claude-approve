@@ -153,6 +153,11 @@ func TestSplit(t *testing.T) {
 			want:  []string{"dangerous_cmd"},
 		},
 		{
+			name:  "dangerous cmd subst in test is extracted",
+			input: "test $(dangerous_cmd)",
+			want:  []string{"dangerous_cmd"},
+		},
+		{
 			name:  "compound script with if [ ] emits only inner commands",
 			input: "if [ -z \"$CADENCE_ROOT\" ] && [ -f \".claude-plugin/plugin.json\" ]; then CADENCE_ROOT=\"$(pwd)\"; fi",
 			want:  []string{"pwd"},
