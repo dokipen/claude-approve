@@ -44,7 +44,7 @@ reason = "Blocked writing secrets (.env/.pem/.key)"
 
 [[allow]]
 tool = "Bash"
-command_regex = "^(bash|cargo|cat|cp|curl|diff|du|echo|env|export|file|find|grep|head|kill|killall|ls|lsof|make|mkdir|mv|nc|npm|npx|open|pgrep|pkill|pwd|pytest|sort|tail|tee|test|touch|tree|unzip|wc|which|yq)( |$)"
+command_regex = "^(bash|cargo|cat|cp|curl|diff|du|echo|env|file|find|grep|head|kill|killall|ls|lsof|make|mkdir|mv|nc|npm|npx|open|pgrep|pkill|pwd|pytest|sort|tail|tee|test|touch|tree|unzip|wc|which|yq)( |$)"
 reason = "Simple command"
 
 [[allow]]

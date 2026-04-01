@@ -186,7 +186,7 @@ func TestSplit(t *testing.T) {
 		{
 			name:  "export with command substitution",
 			input: "export VAR=$(whoami) && echo done",
-			want:  []string{"export VAR=$(whoami)", "whoami", "echo done"},
+			want:  []string{"whoami", "echo done"},
 		},
 		{
 			name:  "multiple assignments with command substitution",
@@ -235,9 +235,34 @@ func TestSplit(t *testing.T) {
 			want:  []string{"magick in.png out.png", "file out.png", "magick identify out.png"},
 		},
 		{
-			name:  "declare with command substitution emits both",
+			name:  "declare with command substitution emits inner only",
 			input: "declare -x FOO=$(cmd)",
-			want:  []string{"declare -x FOO=$(cmd)", "cmd"},
+			want:  []string{"cmd"},
+		},
+		{
+			name:  "declare with static value emits nothing (fallback)",
+			input: "declare -x FOO=static_value",
+			want:  []string{"declare -x FOO=static_value"}, // fallback: single element returned as-is
+		},
+		{
+			name:  "local with dangerous command extracts inner",
+			input: "local VAR=$(dangerous_cmd)",
+			want:  []string{"dangerous_cmd"},
+		},
+		{
+			name:  "export with dangerous command and compound",
+			input: "export VAR=$(dangerous_cmd) && echo done",
+			want:  []string{"dangerous_cmd", "echo done"},
+		},
+		{
+			name:  "typeset with dangerous command extracts inner",
+			input: "typeset VAR=$(dangerous_cmd)",
+			want:  []string{"dangerous_cmd"},
+		},
+		{
+			name:  "readonly with dangerous command extracts inner",
+			input: "readonly VAR=$(dangerous_cmd)",
+			want:  []string{"dangerous_cmd"},
 		},
 		{
 			name:  "nested substitution in assignment",
