@@ -255,6 +255,16 @@ func TestSplit(t *testing.T) {
 			want:  []string{"dangerous_cmd", "echo done"},
 		},
 		{
+			name:  "typeset with dangerous command extracts inner",
+			input: "typeset VAR=$(dangerous_cmd)",
+			want:  []string{"dangerous_cmd"},
+		},
+		{
+			name:  "readonly with dangerous command extracts inner",
+			input: "readonly VAR=$(dangerous_cmd)",
+			want:  []string{"dangerous_cmd"},
+		},
+		{
 			name:  "nested substitution in assignment",
 			input: "X=$(echo $(rm -rf /)) && ls",
 			want:  []string{"echo $(rm -rf /)", "rm -rf /", "ls"},
