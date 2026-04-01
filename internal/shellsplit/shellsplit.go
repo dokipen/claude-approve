@@ -73,7 +73,7 @@ func splitWithDepth(cmd string, depth int) []string {
 			return true
 		}
 
-		// Collect leaf commands (simple commands, declarations, test expressions).
+		// Collect leaf commands (simple commands, test expressions).
 		// Skip compound nodes (BinaryCmd, IfClause, etc.) — Walk descends
 		// into them to find the leaf commands inside.
 		switch call := stmt.Cmd.(type) {
@@ -119,13 +119,6 @@ func splitWithDepth(cmd string, depth int) []string {
 
 			// Normal command: emit it.
 			s := printCommand(printer, stmt, call)
-			if s != "" {
-				commands = append(commands, s)
-			}
-		case *syntax.DeclClause:
-			var buf bytes.Buffer
-			printer.Print(&buf, stmt)
-			s := strings.TrimSpace(buf.String())
 			if s != "" {
 				commands = append(commands, s)
 			}
