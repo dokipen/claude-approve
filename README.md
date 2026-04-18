@@ -185,6 +185,60 @@ Each line in the audit file is a JSON object:
 {"timestamp":"2026-03-01T14:22:29Z","tool_name":"Bash","tool_input":"git status","rule_type":"allow","rule_tool":"Bash","rule_reason":"Dev commands","decision":"allow"}
 ```
 
+Fields:
+
+| Field | Description |
+|-------|-------------|
+| `timestamp` | RFC3339 UTC timestamp |
+| `tool_name` | Claude Code tool that was invoked |
+| `tool_input` | Summarized input (command, file path, etc.) |
+| `rule_type` | Rule type that matched: `allow`, `deny`, `ask` |
+| `rule_tool` | `tool` value from the matched rule |
+| `rule_tool_regex` | `tool_regex` value from the matched rule |
+| `rule_reason` | `reason` string from the matched rule |
+| `decision` | Final decision: `allow`, `deny`, `ask`, `passthrough` |
+| `log_reasons` | Reasons from any `[[log]]` rules that fired (array, omitted if none) |
+
+A recommended log path is `~/.claude/claude-tool-audit.jsonl`. The file is created automatically if it doesn't exist; its parent directory is created with mode `0700`.
+
+### `/audit` Skill
+
+The `/audit` skill analyzes an existing audit log and recommends `[[allow]]` rules to reduce how often Claude Code prompts for permission. It is a Claude Code slash command — run it inside a Claude Code session.
+
+```
+/audit
+```
+
+What it does:
+
+1. Locates your hooks config and reads the `audit_file` path from it (falls back to `~/.claude/claude-tool-audit.jsonl`)
+2. Shows you the resolved log path and `audit_level`, then asks for confirmation before reading the file
+3. Parses the JSONL and displays a breakdown by decision (`allow` / `deny` / `ask` / `passthrough`)
+4. Groups prompt-causing entries (`ask` and `passthrough`) by tool and pattern, sorted by frequency
+5. Generates ready-to-paste `[[allow]]` TOML rules targeting the most frequent prompt patterns
+6. Offers to append the recommended rules directly to your config file
+
+Example session:
+
+```
+/audit
+# Audit log: /home/user/.claude/claude-tool-audit.jsonl (audit_level: matched)
+# 248 total entries — allow: 195, deny: 12, ask: 8, passthrough: 33
+#
+# Top prompt-causing patterns:
+# Pattern  | Tool  | Count | % of Prompts
+# ---------|-------|-------|-------------
+# npm      | Bash  |    18 |  43.9%
+# .lock    | Edit  |     8 |  19.5%
+# ...
+#
+# Recommended rules — would eliminate ~26 of 41 prompts (63%):
+# [[allow]]
+# tool = "Bash"
+# command_regex = "^npm( |$)"
+# reason = "Allow npm commands (18 prompts eliminated)"
+```
+
 ## CLI Commands
 
 ### `run` — Hook mode
